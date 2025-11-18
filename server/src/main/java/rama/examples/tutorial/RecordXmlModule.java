@@ -2,6 +2,7 @@ package rama.examples.tutorial;
 
 import com.rpl.rama.*;
 import com.rpl.rama.module.*;
+import com.rpl.rama.ops.Ops;
 import com.rpl.rama.test.*;
 
 public class RecordXmlModule implements RamaModule {

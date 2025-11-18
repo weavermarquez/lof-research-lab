@@ -8,7 +8,7 @@ import com.rpl.rama.test.*;
 public class HelloWorldModule implements RamaModule {
     @Override
     public void define(Setup setup, Topologies topologies) {
-        setup declareDepot("*depot", Depot.random());
+        setup.declareDepot("*depot", Depot.random());
         StreamTopology s = topologies.stream("s");
         s.source("*depot").out("*data")
             .each(Ops.PRINTLN, "*data");
