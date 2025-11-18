@@ -1,0 +1,20 @@
+#+title: LoF Research Lab
+
+
+** Goal
+End-to-end Rama pipeline to crawl 185 LoF seed docs, normalize them, snapshot versions, and run long-running agentic research jobs on top. 
+
+** Domain
+** MVP Milestones
+*** V1
+Dumb topologies. Hardcoded URLs -> fetch -> normalize -> store -> simple search CLI.
+
+*** V2
+Add snapshotting, frontier expansion, link expansion.
+
+*** V3
+Add research job state machine: plan -> gather -> synthesize. Resumable jobs.
+
+*** V4
+Add minimal simulation harness for agent invariants.
+
