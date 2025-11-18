@@ -1,20 +1,124 @@
 #+title: LoF Research Lab
 
-
 ** Goal
 End-to-end Rama pipeline to crawl 185 LoF seed docs, normalize them, snapshot versions, and run long-running agentic research jobs on top. 
 
-** Domain
-** MVP Milestones
-*** V1
-Dumb topologies. Hardcoded URLs -> fetch -> normalize -> store -> simple search CLI.
+*** Domain
+*** MVP Milestones
+Please check =AGENTS.md=
 
-*** V2
-Add snapshotting, frontier expansion, link expansion.
+** Architecture Phases
+*** rama-examples
+This repository contains examples from the [[https://redplanetlabs.com/docs/~/index.html][Rama documentation]]. To see short, end-to-end, thoroughly commented examples of using Rama check out [[https://github.com/redplanetlabs/rama-demo-gallery][rama-demo-gallery]].
 
-*** V3
-Add research job state machine: plan -> gather -> synthesize. Resumable jobs.
+Rama currently only works on macOS or Linux and doesn't work on Windows.
 
-*** V4
-Add minimal simulation harness for agent invariants.
+As explained in the docs, you can start a Groovy REPL with:
 
+#+begin_example bash
+mvn compile
+mvn gplus:shell
+#+end_example
+
+
+This is a great way to run the examples or experiment.
+
+Please note: you should use Java 17 or below in order to avoid problems running the Groovy REPL.
+
+*** V0: XML Seeder (Current Focus)
+**Goal**: Make first contact with Rama. Parse XML → canonical records → seed PStates.
+
+**Components**:
+- `Paper.java`: POJO implementing RamaSerializable
+- `ZoteroXmlParser.java`: Parse Zotero XML export to Paper objects
+- `PaperSeederModule.java`: Microbatch topology to ingest records
+
+**PStates**:
+- `$$papersById`: Map<String, Paper> - canonical paper storage
+- `$$urlFrontier`: Set<String> - URLs to crawl (seed for V1)
+
+**Canonical ID Strategy**:
+1. If DOI exists: use it
+2. Else: generate slug from `firstAuthor-year-titleWords` (normalized, lowercase)
+3. Handle collisions with incremental suffixes
+
+**Learning objectives**:
+- Depot → Topology → PState flow
+- MicrobatchTopology vs StreamTopology
+- InProcessCluster testing
+- PState schemas and Path queries
+
+*** V1: Basic Crawler
+**Goal**: Dumb topologies. Hardcoded URLs → fetch → normalize → store → simple search CLI.
+
+**New Components**:
+- HTTP fetcher service (external to Rama, or integrated via async operations)
+- HTML parser/normalizer
+- Simple text search over abstracts/content
+
+**New PStates**:
+- `$$htmlCache`: Map<String, CachedHtml> - raw fetched content
+- `$$paperContent`: Map<String, NormalizedText> - parsed/cleaned text
+- `$$invertedIndex`: Map<String, Set<String>> - term → paperIds
+
+**Learning objectives**:
+- ETL from external services
+- Agg.list and Agg.set for building indices
+- Query composition with Path API
+
+### V2: Frontier Expansion
+**Goal**: Add snapshotting, frontier expansion, link expansion.
+
+**New topology**: FrontierExpansionTopology
+- Extracts citations from papers
+- Matches citations to known papers or adds to frontier
+- Tracks discovered-at timestamps
+
+**New PStates**:
+- `$$citationGraph`: Map<String, Set<String>> - paperId → citedPaperIds
+- `$$paperVersions`: Map<String, Map<Long, Paper>> - versioned snapshots
+- `$$frontierMetadata`: Map<String, FrontierEntry> - URL + priority + discovered-at
+
+**Learning objectives**:
+- StreamTopology for real-time frontier updates
+- Versioned PStates (using timestamp keys)
+- Graph traversal patterns
+
+*** V3: Research Job State Machine
+**Goal**: Plan → gather → synthesize. Resumable long-running jobs.
+
+**New topology**: ResearchJobTopology
+- State machine: PLANNING → GATHERING → SYNTHESIZING → COMPLETE
+- LLM integration for agentic research
+- Checkpointing for resume-ability
+
+**New PStates**:
+- `$$researchJobs`: Map<String, ResearchJob> - job state
+- `$$jobResults`: Map<String, Map<String, Artifact>> - jobId → outputs
+
+**Learning objectives**:
+- FSM patterns in Rama
+- External service integration (LLM APIs)
+- Long-running workflows
+
+*** V4: Simulation Harness
+**Goal**: Add minimal simulation harness for agent invariants.
+
+Property testing for research agents:
+- Idempotency: re-running same query gives same results
+- Monotonicity: more papers → more comprehensive results
+- Citation consistency: if A cites B, B appears in corpus
+
+**Learning objectives**:
+- Rama's testing utilities
+- Invariant checking patterns
+
+** Current Status
+Please check ~bd ready~ for open tasks, or ~bd list~ for all tasks.
+
+** References
+
+- [[https://redplanetlabs.com/docs/~/index.html][Rama Documentation]]
+- [[https://github.com/redplanetlabs/rama-demo-gallery][Rama Demo Gallery]]
+- George Spencer Brown Society: [[https://lof50.com][Main Site]]
+  - Seed Texts: [[gsbbib__pretty.xml][GSB Bibliography]]
