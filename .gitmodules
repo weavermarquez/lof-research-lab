@@ -1,0 +1,9 @@
+[submodule "agent-o-rama"]
+	path = agent-o-rama
+	url = git@github.com:weavermarquez/agent-o-rama.git
+[submodule "next-level-backends"]
+	path = next-level-backends
+	url = git@github.com:weavermarquez/next-level-backends-with-rama-java.git
+[submodule "rama-demo-gallery"]
+	path = rama-demo-gallery
+	url = git@github.com:weavermarquez/rama-demo-gallery.git
