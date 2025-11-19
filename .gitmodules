@@ -7,3 +7,9 @@
 [submodule "rama-demo-gallery"]
 	path = rama-demo-gallery
 	url = git@github.com:weavermarquez/rama-demo-gallery.git
+[submodule "rama-helpers"]
+	path = rama-helpers
+	url = git@github.com:weavermarquez/rama-helpers.git
+[submodule "rama-examples"]
+	path = rama-examples
+	url = git@github.com:weavermarquez/rama-examples.git
