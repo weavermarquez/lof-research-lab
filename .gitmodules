@@ -1,0 +1,6 @@
+[submodule "rama-demo-gallery"]
+	path = rama-demo-gallery
+	url = git@github.com:redplanetlabs/rama-demo-gallery.git
+[submodule "rama-clojure-starter"]
+	path = rama-clojure-starter
+	url = git@github.com:redplanetlabs/rama-clojure-starter.git
