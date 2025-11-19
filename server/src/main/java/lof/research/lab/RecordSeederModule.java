@@ -32,11 +32,11 @@ public class RecordSeederModule implements RamaModule {
 
   public static void main(String[] args) throws Exception {
     System.out.println("=== Record Seeder V0 ===");
-    System.out.println("Parsing XML and seeding PState with first 10 records\n");
+    System.out.println("Parsing XML and seeding PState with first 200 records\n");
 
-    // Parse XML file (first 10 records)
+    // Parse XML file (first 200 records)
     String xmlPath = "../gsbbib__pretty.xml";
-    List<Record> records = ZoteroXmlParser.parseXmlFile(xmlPath, 10);
+    List<Record> records = ZoteroXmlParser.parseXmlFile(xmlPath, 200);
 
     if (records.isEmpty()) {
       System.err.println("No records parsed. Exiting.");
@@ -65,7 +65,7 @@ public class RecordSeederModule implements RamaModule {
 
       // Query PState and display results
       System.out.println("=== Sample Records from PState ===\n");
-      for (int i = 0; i < Math.min(3, records.size()); i++) {
+      for (int i = 0; i < Math.min(20, records.size()); i++) {
         Record record = records.get(i);
         String id = record.canonicalId;
         Record retrieved = (Record) recordsById.selectOne(Path.key(id));
