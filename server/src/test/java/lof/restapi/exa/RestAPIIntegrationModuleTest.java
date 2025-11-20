@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 
 import com.rpl.rama.*;
 import com.rpl.rama.test.*;
+import lof.restapi.exa.data.SearchRequest;
 
 public class RestAPIIntegrationModuleTest {
   @Test
@@ -50,8 +51,9 @@ public class RestAPIIntegrationModuleTest {
       }
 
       String query = "Laws of Form cybernetics overview";
+      SearchRequest req = new SearchRequest(query);
 
-      postDepot.append(query);
+      postDepot.append(req);
 
       String responseBody = null;
       for(int i = 0; i < 30; i++) {
