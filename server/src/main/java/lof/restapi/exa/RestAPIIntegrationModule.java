@@ -2,14 +2,19 @@ package lof.restapi.exa;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import com.rpl.rama.*;
 import com.rpl.rama.integration.*;
 import com.rpl.rama.module.*;
+import com.rpl.rama.helpers.TopologyUtils.ExtractJavaField;
 import com.rpl.rama.ops.*;
 import org.asynchttpclient.*;
 import org.asynchttpclient.netty.NettyResponse;
 import lof.restapi.exa.data.SearchRequest;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /*
  * This module demonstrates integrating Rama with an external service, in this case a REST API.
@@ -44,6 +49,10 @@ public class RestAPIIntegrationModule implements RamaModule {
     }
   }
 
+  public static class ExtractQuery extends ExtractJavaField {
+    public ExtractQuery() { super("query"); }
+  }
+
   // This method is the entry point to all modules. It defines all depots, ETLs, PStates, and query topologies.
   @Override
   public void define(Setup setup, Topologies topologies) {
@@ -51,7 +60,7 @@ public class RestAPIIntegrationModule implements RamaModule {
     // appended data is partitioned across the depot, affecting on which task each piece of data begins
     // processing in ETLs.
     setup.declareDepot("*getDepot", Depot.hashBy(Ops.IDENTITY));
-    setup.declareDepot("*postDepot", Depot.hashBy((SearchRequest req) -> req.query));
+    setup.declareDepot("*postDepot", Depot.hashBy(ExtractQuery.class));
     // This declares a task global with the given value. Since AsyncHttpClientTaskGlobal implements the TaskGlobalObject
     // interface, the value is specialized per task. Accessing the variable "*httpClient" in topologies always accesses the
     // value local to the task where the topology event is running.
@@ -104,60 +113,13 @@ public class RestAPIIntegrationModule implements RamaModule {
   }
 
   private static String buildRequestBody(SearchRequest req) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("{");
-    appendField(sb, "query", req.query, true);
-    appendField(sb, "type", req.type, false);
-    appendField(sb, "category", req.category, false);
-    appendField(sb, "userLocation", req.userLocation, false);
-    appendNumberField(sb, "numResults", req.numResults);
-    appendStringArray(sb, "includeDomains", req.includeDomains);
-    appendStringArray(sb, "excludeDomains", req.excludeDomains);
-    appendField(sb, "startCrawlDate", req.startCrawlDate, false);
-    appendField(sb, "endCrawlDate", req.endCrawlDate, false);
-    appendField(sb, "startPublishedDate", req.startPublishedDate, false);
-    appendField(sb, "endPublishedDate", req.endPublishedDate, false);
-    appendStringArray(sb, "includeText", req.includeText);
-    appendStringArray(sb, "excludeText", req.excludeText);
-    appendBooleanField(sb, "context", req.context);
-    appendBooleanField(sb, "moderation", req.moderation);
-
-    boolean includeTextVal = req.contentsText == null ? true : req.contentsText;
-    sb.append("\"contents\":{");
-    sb.append("\"text\":").append(includeTextVal);
-    sb.append("}");
-
-    sb.append("}");
-    return sb.toString();
-  }
-
-  private static void appendField(StringBuilder sb, String key, String value, boolean first) {
-    if(value == null) return;
-    if(!first) sb.append(",");
-    sb.append("\"").append(key).append("\":\"").append(escape(value)).append("\"");
-  }
-
-  private static void appendNumberField(StringBuilder sb, String key, Number value) {
-    if(value == null) return;
-    sb.append(",\"").append(key).append("\":").append(value);
-  }
-
-  private static void appendBooleanField(StringBuilder sb, String key, Boolean value) {
-    if(value == null) return;
-    sb.append(",\"").append(key).append("\":").append(value);
-  }
-
-  private static void appendStringArray(StringBuilder sb, String key, List<String> vals) {
-    if(vals == null || vals.isEmpty()) return;
-    sb.append(",\"").append(key).append("\":[");
-    for(int i=0; i<vals.size(); i++) {
-      if(i>0) sb.append(",");
-      sb.append("\"").append(escape(vals.get(i))).append("\"");
+    if(req.contents == null) {
+      req.contents = new HashMap<>();
     }
-    sb.append("]");
-  }
-
-  private static String escape(String val) {
-    return val.replace("\\", "\\\\").replace("\"", "\\\"");
+    if(!req.contents.containsKey("text")) {
+      req.contents.put("text", Boolean.TRUE);
+    }
+      Gson gson = new GsonBuilder().create();
+    return gson.toJson(req);
   }
 }

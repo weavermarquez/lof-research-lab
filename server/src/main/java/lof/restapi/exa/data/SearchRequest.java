@@ -1,6 +1,8 @@
 package lof.restapi.exa.data;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import com.rpl.rama.RamaSerializable;
 
@@ -20,9 +22,11 @@ public class SearchRequest implements RamaSerializable {
   public List<String> excludeText;
   public Boolean context;
   public Boolean moderation;
-  public Boolean contentsText;
+  public Map<String, Object> contents;
 
   public SearchRequest(String query) {
     this.query = query;
+    this.contents = new HashMap<>();
+    this.contents.put("text", Boolean.FALSE);
   }
 }
