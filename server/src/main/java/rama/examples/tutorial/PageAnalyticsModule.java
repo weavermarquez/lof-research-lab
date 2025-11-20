@@ -40,7 +40,7 @@ public class PageAnalyticsModule implements RamaModule {
 
     public static void main(String[] args) throws Exception {
         try (InProcessCluster cluster = InProcessCluster.create()) {
-            cluster.launchModule(new PageAnalyticsModule(), newLaunchConfig(1,1));
+            cluster.launchModule(new PageAnalyticsModule(), new LaunchConfig(1,1));
             String moduleName = PageAnalyticsModule.class.getName();
             Depot depot = cluster.clusterDepot(moduleName, "*depot");
 
