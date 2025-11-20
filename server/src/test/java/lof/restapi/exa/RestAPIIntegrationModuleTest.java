@@ -1,11 +1,10 @@
 package lof.restapi.exa;
 
 import org.junit.Test;
+import static org.junit.Assert.*;
 
 import com.rpl.rama.*;
 import com.rpl.rama.test.*;
-
-import lof.restapi.exa.RestAPIIntegrationModule;
 
 public class RestAPIIntegrationModuleTest {
   @Test
@@ -32,6 +31,38 @@ public class RestAPIIntegrationModuleTest {
       System.out.println("Response 1: " + responses.selectOne(Path.key(url)));
       getDepot.append(url);
       System.out.println("Response 2: " + responses.selectOne(Path.key(url)));
+    }
+  }
+
+  @Test
+  public void testExaSearchPost() throws Exception {
+    try(InProcessCluster ipc = InProcessCluster.create()) {
+      RestAPIIntegrationModule module = new RestAPIIntegrationModule();
+      String moduleName = module.getClass().getName();
+      ipc.launchModule(module, new LaunchConfig(4, 2));
+
+      Depot postDepot = ipc.clusterDepot(moduleName, "*postDepot");
+      PState responses = ipc.clusterPState(moduleName, "$$responses");
+
+      String apiKey = System.getenv("EXA_API_KEY");
+      if(apiKey == null || apiKey.isEmpty()) {
+        throw new IllegalStateException("EXA_API_KEY must be set to run Exa integration test");
+      }
+
+      String query = "Laws of Form cybernetics overview";
+
+      postDepot.append(query);
+
+      String responseBody = null;
+      for(int i = 0; i < 30; i++) {
+        responseBody = (String) responses.selectOne(Path.key(query));
+        if(responseBody != null) break;
+        Thread.sleep(500);
+      }
+
+      assertNotNull("Did not receive search response from Exa", responseBody);
+      assertTrue("Response should include results array", responseBody.contains("\"results\""));
+      System.out.println("Search response: " + responseBody);
     }
   }
 }

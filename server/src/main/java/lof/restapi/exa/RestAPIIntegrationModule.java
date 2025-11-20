@@ -49,6 +49,7 @@ public class RestAPIIntegrationModule implements RamaModule {
     // appended data is partitioned across the depot, affecting on which task each piece of data begins
     // processing in ETLs.
     setup.declareDepot("*getDepot", Depot.hashBy(Ops.IDENTITY));
+    setup.declareDepot("*postDepot", Depot.hashBy(Ops.IDENTITY));
     // This declares a task global with the given value. Since AsyncHttpClientTaskGlobal implements the TaskGlobalObject
     // interface, the value is specialized per task. Accessing the variable "*httpClient" in topologies always accesses the
     // value local to the task where the topology event is running.
@@ -59,7 +60,8 @@ public class RestAPIIntegrationModule implements RamaModule {
     //   PStates are durable and replicated datastores and are represented as an arbitrary combination of data structures. Reads
     // and writes to PStates go to disk and are not purely in-memory operations.
     //   This PState stores the latest response for each URL, a map from a URL to the body of the HTTP response.
-    s.pstate("$$responses", PState.mapSchema(String.class, String.class));
+    s.pstate("$$getResponses", PState.mapSchema(String.class, String.class));
+    s.pstate("$$searchResponses", PState.mapSchema(String.class, String.class));
     // This subscribes the ETL to "*getDepot", binding all URLs to the variable "*url". Because of the depot partitioner
     // on "*getDepot", computation starts on the same task where registration info is stored for that URL in
     // the "$$responses" PState.
@@ -73,6 +75,29 @@ public class RestAPIIntegrationModule implements RamaModule {
                 "*httpClient", "*url").out("*response")
      .each((RamaFunction1<NettyResponse, String>) NettyResponse::getResponseBody, "*response").out("*body")
      // This records the latest response in the PState.
-     .localTransform("$$responses", Path.key("*url").termVal("*body"));
+     .localTransform("$$getResponses", Path.key("*url").termVal("*body"));
+
+    // postDepot triggers a POST search to Exa based on the provided query.
+    s.source("*postDepot").out("*query")
+     // eachAsync integrates arbitrary asynchronous work represented by a CompletableFuture within a topology. It ties
+     // the success/failure of the asynchronous task with the success/failure of the topology. So if the asynchronous
+     // work fails or times out, the topology will fail as well and the depot record will be retried. eachAsync is a
+     // non-blocking operation.
+     .eachAsync((AsyncHttpClientTaskGlobal client, String query) -> {
+                 String apiKey = System.getenv("EXA_API_KEY");
+                 if(apiKey == null || apiKey.isEmpty()) {
+                   throw new IllegalStateException("EXA_API_KEY env var must be set for Exa search");
+                 }
+                 BoundRequestBuilder request = client.client.preparePost("https://api.exa.ai/search")
+                   .setHeader("accept", "application/json")
+                   .setHeader("content-type", "application/json")
+                   .setHeader("x-api-key", apiKey)
+                   .setBody("{\"query\":\"" + query + "\",\"type\":\"auto\",\"contents\":{\"text\":true}}");
+                 return request.execute().toCompletableFuture();
+               },
+               "*httpClient", "*query").out("*response")
+     .each((RamaFunction1<Response, String>) Response::getResponseBody, "*response").out("*body")
+     // This records the latest response in the PState.
+     .localTransform("$$searchResponses", Path.key("*query").termVal("*body"));
   }
 }
