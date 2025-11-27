@@ -174,7 +174,7 @@ We use a second supervisord program (second Zo Service) that:
 
 Tangle to =/home/workspace/agent-o-rama/start-agents.sh= and =chmod +x=.
 
-#+begin_src bash :tangle /home/workspace/agent-o-rama/start-agents.sh
+#+begin_src bash :tangle start-agents.sh
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
