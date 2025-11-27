@@ -1,0 +1,293 @@
+#+title: Agent-o-rama Web UI Invocation Guide
+#+date: 2025-11-27
+#+author: Investigation Summary
+
+* Overview
+This document summarizes key findings about invoking Agent-o-rama modules through the web UI, based on investigation of ReActModule and ResearchAgentModule.
+
+* Key Finding: Understanding Input Arguments Format
+
+** The Input Box: ~[arg1, arg2, arg3]~
+The web UI expects a JSON array where each element maps *positionally* to the agent's entry node function parameters.
+
+** Position-Based Parameter Mapping
+#+begin_example
+Entry node signature:
+.node("entry", (AgentNode node, Type1 param1, Type2 param2) -> {...})
+
+Web UI input:
+[value1, value2]
+ ↓      ↓
+ param1 param2
+#+end_example
+
+** You Must Know Each Module's Schema
+- No automatic schema discovery in the web UI
+- Must read source code or documentation to understand expected inputs
+- Think of it like calling a function: you need to know the signature
+
+* Module-Specific Examples
+
+** ReActModule
+*** Entry Node Signature
+#+begin_src java
+.node("chat", "chat", (AgentNode agentNode, List<Object> inputMessages) -> {
+#+end_src
+
+*** Parameters
+- 1 parameter: ~inputMessages~ (List)
+
+*** Web UI Invocation
+#+begin_example
+[["What is the capital of France?"]]
+#+end_example
+
+*** Why This Format
+- The outer array is the arguments array
+- Position 0 contains a list of messages
+- The agent accepts flexible input (strings or ChatMessage objects)
+
+** ResearchAgentModule
+*** Entry Node Signature
+#+begin_src java
+.node("create-analysts", "feedback",
+      (AgentNode agentNode, String humanFeedback, Map<String, Object> options) -> {
+#+end_src
+
+*** Parameters
+- 2 parameters: ~humanFeedback~ (String), ~options~ (Map)
+
+*** Web UI Invocation (Correct)
+#+begin_example
+["", {"topic": "I want to learn about Chamoy Peach Rings"}]
+#+end_example
+
+*** Why the Empty String?
+- First invocation has no feedback yet
+- ~""~ is a placeholder for ~humanFeedback~
+- ~{"topic": "..."}~ goes to ~options~
+- The same node serves as both initial entry point and re-entry point for feedback loop
+
+*** Common Mistake: Wrong Format
+#+begin_example
+[{"topic": "..."}]  # ✗ FAILS - Map tries to cast to String
+#+end_example
+
+* The Long vs Integer Casting Issue
+
+** Problem
+When you include numeric parameters explicitly:
+#+begin_example
+["", {"topic": "...", "max-analysts": 4, "max-turns": 2}]
+#+end_example
+
+Error: ~ClassCastException: java.lang.Long cannot be cast to java.lang.Integer~
+
+** Why This Happens
+1. JSON doesn't distinguish between integer types
+2. Web UI's JSON parser deserializes numbers as ~Long~ (for safety)
+3. ResearchAgentModule code casts directly to ~Integer~
+4. Cast fails when values are ~Long~
+
+** Solution: Use Default Values
+#+begin_example
+["", {"topic": "your topic here"}]
+#+end_example
+
+ResearchAgentModule sets defaults (lines 192-194):
+#+begin_src java
+Map<String, Object> config = new HashMap<>();
+config.put("max-analysts", 4);   // Default as Integer
+config.put("max-turns", 2);      // Default as Integer
+config.putAll(options);          // Merge user options
+#+end_src
+
+When you omit numeric parameters, defaults are used (as Integer) and no casting error occurs.
+
+* The Metadata Field
+
+** Purpose
+Optional JSON map for tagging and organizing invocations - does NOT affect agent logic.
+
+** Location
+Second input box in web UI: ~Metadata (JSON map, optional)~
+
+** Common Use Cases
+*** Tracking identifiers
+#+begin_example
+{"user_id": "user-123", "session_id": "abc-xyz"}
+#+end_example
+
+*** A/B testing
+#+begin_example
+{"experiment": "variant-b", "cohort": "power-users"}
+#+end_example
+
+*** Business context
+#+begin_example
+{"customer": "acme-corp", "priority": "high"}
+#+end_example
+
+*** Version tracking
+#+begin_example
+{"model_version": "v2.1", "prompt_version": "20241127"}
+#+end_example
+
+** How It Works
+- Stored alongside the invocation in ~root-pstate~
+- Can be retrieved later for filtering/analytics
+- Can be modified post-invocation via web UI
+- Agent receives only ~args~, metadata is for your tracking
+
+** Example
+#+begin_example
+Args: ["", {"topic": "Chamoy Peach Rings"}]
+Metadata: {"experiment": "research-v2", "user": "kwalerie"}
+#+end_example
+
+* Interactive Agents and the Web UI
+
+** Initial Misunderstanding
+Originally thought web UI only supported simple request/response patterns.
+
+** Reality: Web UI Supports Interactive Agents
+The web UI DOES support agents that use ~HumanInputRequest~ for multi-step execution:
+1. Initial invocation with arguments
+2. Agent requests human input mid-execution
+3. User provides input through web UI
+4. Agent continues execution
+5. Process repeats until completion
+
+** ResearchAgentModule Flow
+1. ~["", {"topic": "..."}]~ → Start agent
+2. Agent generates analysts
+3. Agent asks: "Do you have any feedback on this set of analysts?"
+4. User responds via web UI
+5. If yes: Agent asks "What is your feedback?" and regenerates analysts
+6. If no: Agent proceeds to generate questions and research
+
+* How to Discover a Module's Input Schema
+
+** Method 1: Read Source Code
+Look at the first node defined (entry node):
+#+begin_src java
+topology.newAgent("MyAgent")
+    .node("entry-node", "next-node",
+          (AgentNode agentNode, Type1 param1, Type2 param2) -> {
+          //                    ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+          //                    Position 0      Position 1
+#+end_src
+
+** Method 2: Check Example Runner
+See how the command-line example invokes it:
+#+begin_src java
+// ReActExample.java
+agent.invoke(Arrays.asList(userInput));  // Single list parameter
+
+// ResearchAgentExample.java
+researcher.initiate("", input);  // Two parameters: String, Map
+#+end_src
+
+** Method 3: Module Documentation
+Check README or comments for invocation format examples.
+
+* Common Input Patterns
+
+** Single String Parameter
+#+begin_src java
+.node("entry", (AgentNode node, String question) -> {...})
+#+end_src
+Web UI: ~["What is the capital of France?"]~
+
+** Multiple Parameters
+#+begin_src java
+.node("entry", (AgentNode node, String input, Map<String, Object> config) -> {...})
+#+end_src
+Web UI: ~["user input", {"setting": "value"}]~
+
+** List/Array Parameter
+#+begin_src java
+.node("entry", (AgentNode node, List<Object> messages) -> {...})
+#+end_src
+Web UI: ~[["message1", "message2"]]~ (array containing array)
+
+** Complex Objects
+#+begin_src java
+.node("entry", (AgentNode node, Map<String, Object> request) -> {...})
+#+end_src
+Web UI: ~[{"query": "...", "filters": ["a", "b"]}]~
+
+* Quick Reference Table
+
+| Module              | Entry Signature              | Web UI Format                              | Notes                    |
+|---------------------+------------------------------+--------------------------------------------+--------------------------|
+| ReActModule         | ~(List<Object> messages)~    | ~[["question"]]~                           | Single list parameter    |
+| ResearchAgentModule | ~(String feedback, Map cfg)~ | ~["", {"topic": "..."}]~                   | Empty string + map       |
+| (Generic)           | ~(String s)~                 | ~["text"]~                                 | Single string            |
+| (Generic)           | ~(String s, Map m)~          | ~["text", {"key": "val"}]~                 | Multiple params          |
+| (Generic)           | ~(Map m)~                    | ~[{"key": "val"}]~                         | Single map               |
+
+* Best Practices for Module Authors
+
+1. *Document input schema* in README or comments
+2. *Use descriptive parameter names* for self-documentation
+3. *Provide validation* with clear error messages
+4. *Consider default values* to simplify invocation (like ResearchAgentModule)
+5. *Handle type conversions* safely (Long vs Integer, etc.)
+
+* Troubleshooting
+
+** Problem: ClassCastException for Map to String
+*Symptom:* ~java.lang.ClassCastException: class java.util.HashMap cannot be cast to class java.lang.String~
+
+*Cause:* Missing parameters in input array - position mismatch
+
+*Solution:* Ensure array has correct number of elements matching function signature
+
+** Problem: ClassCastException for Long to Integer
+*Symptom:* ~java.lang.ClassCastException: java.lang.Long cannot be cast to java.lang.Integer~
+
+*Cause:* JSON parser returns Long, code expects Integer
+
+*Solution:* Omit numeric parameters to use defaults, or fix module code
+
+** Problem: Agent doesn't respond to input
+*Symptom:* Sent input but agent seems stuck
+
+*Cause:* May be waiting for correct input format or ~HumanInputRequest~
+
+*Solution:* Check trace in web UI to see current agent state
+
+* Related Files
+
+- ~examples/java/src/main/java/com/rpl/agent/react/ReActModule.java~ - Simple agent example
+- ~examples/java/src/main/java/com/rpl/agent/research/ResearchAgentModule.java~ - Complex interactive agent
+- ~examples/java/src/main/java/com/rpl/agent/react/ReActExample.java~ - CLI invocation example
+- ~examples/java/src/main/java/com/rpl/agent/research/ResearchAgentExample.java~ - CLI invocation with interaction
+- ~src/cljs/com/rpl/agent_o_rama/ui/agents.cljs~ - Web UI form handling (lines 20-64)
+- ~src/clj/com/rpl/agent_o_rama/impl/ui/handlers/invocations.clj~ - Backend invocation handler (lines 19-26)
+
+* Working Examples from Testing
+
+** ReActModule (Successful)
+#+begin_example
+Args: [["Beep, hello!"]]
+Metadata: {}
+Result: Agent responds with greeting
+#+end_example
+
+** ResearchAgentModule (Successful)
+#+begin_example
+Args: ["", {"topic": "I want to learn more about Chamoy Peach Rings"}]
+Metadata: {"user": "kwalerie", "session": "morning-research"}
+Result: Agent generates analysts, requests feedback, produces research report
+#+end_example
+
+* Summary
+
+The key insight: *Agent invocation in the web UI is just calling a function*.
+- The JSON array maps positionally to function parameters
+- You must know the function signature (entry node parameters)
+- Interactive agents ARE supported through ~HumanInputRequest~
+- Metadata is for your tracking, not agent logic
+- Type mismatches (Long vs Integer) can cause issues with explicit numeric values

@@ -1,0 +1,648 @@
+
+╭─── Claude Code v2.0.55 ──────────────────────────────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting started                        │
+│                    Welcome back!                   │ Run /init to create a CLAUDE.md file with inst… │
+│                                                    │ ─────────────────────────────────────────────── │
+│                       ▐▛███▜▌                      │ Recent activity                                 │
+│                      ▝▜█████▛▘                     │ No recent activity                              │
+│                        ▘▘ ▝▝                       │                                                 │
+│                                                    │                                                 │
+│           Sonnet 4.5 · API Usage Billing           │                                                 │
+│  ~/…/org/30-fractal/lof-research-lab/agent-o-rama  │                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+ ⚠Auth conflict: Using apiKeyHelper instead of Anthropic Console key. Either unset apiKeyHelper, or run 
+  `claude /logout`.
+  /model to try Opus 4.5
+
+> Heya. I'm trying to understand why, in the web interface, I am able to send [["Beep, hello!"]] in 
+the Agent-o-rama web UI to manually run the ReAct module agent, but I cannot do the same with the
+ResearchAgentModule. I have just determined that I am able to use ./run-example in order to run
+ReActExample and ResearchAgentExample perfectly fine, so clearly I may be missing some nuance of how
+ each module is expecting input. Please ultrathink about this and write a report to me. You can see 
+more information about rama, agent-o-rama in the org mode files such as @example-run.txt  and
+@quickstart-agents.org . I am using example/java code and when I mean the web UI i mean deploying
+agent-o-rama on a single node cluster, but also, I am able to access the same web UI after running
+an example.
+  ⎿  Read example-run.txt (440 lines)
+  ⎿  Read quickstart-agents.org (117 lines)
+
+● I'll investigate the differences between how ReActModule and ResearchAgentModule expect their
+  inputs. Let me search for the source code to understand their invocation signatures.
+
+● Search(pattern: "**/ReActModule.java")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "**/ResearchAgentModule.java")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "**/ReActExample.java")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Search(pattern: "**/ResearchAgentExample.java")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+● Read(examples/java/src/main/java/com/rpl/agent/react/ReActModule.java)
+  ⎿  Read 82 lines
+
+● Read(examples/java/src/main/java/com/rpl/agent/research/ResearchAgentModule.java)
+  ⎿  Read 557 lines
+
+● Read(examples/java/src/main/java/com/rpl/agent/react/ReActExample.java)
+  ⎿  Read 70 lines
+
+● Read(examples/java/src/main/java/com/rpl/agent/research/ResearchAgentExample.java)
+  ⎿  Read 66 lines
+
+● Now I can see the critical differences! Let me create a comprehensive report for you.
+
+  Analysis Report: ReActModule vs ResearchAgentModule Web UI Invocation
+
+  Executive Summary
+
+  The ResearchAgentModule cannot be invoked from the web UI using the same pattern as ReActModule
+  because they have fundamentally different invocation signatures and execution models. ReActModule
+  uses a simple synchronous invocation, while ResearchAgentModule uses an interactive multi-step
+  execution that requires human feedback during runtime.
+
+  ---
+  Key Differences
+
+  1. Invocation Signature
+
+  ReActModule (ReActModule.java:47)
+  .node("chat", "chat", (AgentNode agentNode, List<Object> inputMessages) -> {
+  - Takes a single parameter: List<Object> containing messages
+  - Web UI format: [["question string"]] ✓ Works
+
+  ResearchAgentModule (ResearchAgentModule.java:190)
+  .node("create-analysts", "feedback", (AgentNode agentNode, String humanFeedback, Map<String,
+  Object> options) -> {
+  - Takes two parameters:
+    a. String humanFeedback
+    b. Map<String, Object> options (containing topic, max-analysts, max-turns)
+  - Web UI format: Cannot use simple [["topic"]] format ✗ Does not work
+
+  2. Invocation Method
+
+  ReActModule (ReActExample.java:62)
+  Object result = agent.invoke(Arrays.asList(userInput));
+  - Uses AgentClient.invoke() - single synchronous call
+  - Fire-and-forget pattern
+  - Returns result directly
+
+  ResearchAgentModule (ResearchAgentExample.java:38-60)
+  AgentInvoke invoke = researcher.initiate("", input);
+  Object step = researcher.nextStep(invoke);
+  while (step != null) {
+    if (step instanceof HumanInputRequest) {
+      // Handle human input request
+      researcher.provideHumanInput(request, response);
+    }
+    step = researcher.nextStep(invoke);
+  }
+  - Uses AgentClient.initiate() + nextStep() loop
+  - Interactive, multi-step execution pattern
+  - Requires human feedback during execution via HumanInputRequest
+
+  3. Human Interaction Requirements
+
+  ReActModule
+  - No human interaction required during execution
+  - Single question → single answer
+
+  ResearchAgentModule (ResearchAgentModule.java:214-226)
+  - Requires human feedback at the "feedback" node:
+  .node("feedback", ..., (AgentNode agentNode, ...) -> {
+    String prompt = "Do you have any feedback on this set of analysts? Answer 'yes' or 'no'.\n\n" +
+  ...
+    boolean hasFeedback = humanYes(agentNode, prompt);
+    if (hasFeedback) {
+      String feedback = agentNode.getHumanInput("What is your feedback?");
+      agentNode.emit("create-analysts", feedback, options);
+    } else {
+      agentNode.emit("questions", analysts, options);
+    }
+  })
+  - This blocking interaction cannot be handled by the simple web UI invocation interface
+
+  ---
+  Why This Happens
+
+  From your example-run.txt (lines 225-243), we can see the ResearchAgentModule prompting for
+  feedback:
+  Do you have any feedback on this set of analysts? Answer 'yes' or 'no'.
+
+  {role=Cultural Historian, ...}
+  {role=Gender Studies Scholar, ...}
+  ...
+  >> no
+
+  The web UI's invocation interface appears designed for simple request/response patterns like
+  ReActModule, not interactive multi-step executions with mid-flight human feedback requests.
+
+  ---
+  How to Properly Invoke ResearchAgentModule
+
+  From Command Line (✓ Works)
+
+  ./run-example com.rpl.agent.research.ResearchAgentExample
+  # Prompts for topic, then handles interactive feedback
+
+  From Web UI (Attempted Format)
+
+  To properly invoke from the web UI, you would need to use:
+  ["", {"topic": "your research topic here", "max-analysts": 4, "max-turns": 2}]
+
+  However, this still won't work fully because:
+  1. The web UI likely doesn't support the initiate()/nextStep() API
+  2. The web UI cannot handle HumanInputRequest objects mid-execution
+  3. The web UI expects agents that complete in one invoke() call
+
+  ---
+  The ClassCastException Errors
+
+  From example-run.txt (lines 318-438), you also see repeated errors:
+  java.lang.ClassCastException: class
+  com.rpl.agent.research.ResearchAgentModule$$Lambda/0x00000000944ee2d0
+  cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2
+
+  These occur at the create-analysts node and suggest there may also be a lambda type mismatch issue
+   in the module implementation, though the module still completes successfully before these errors
+  appear.
+
+  ---
+  Recommendations
+
+  1. Use the command-line runner for ResearchAgentModule - it's designed for this interactive
+  pattern
+  2. For web UI testing, stick with agents like ReActModule that use simple invoke() patterns
+  3. To make ResearchAgentModule web-UI compatible, you would need to:
+    - Refactor it to take all input upfront (no mid-execution feedback)
+    - Remove the HumanInputRequest flow
+    - Use a single invoke() call pattern
+    - Or build custom web UI support for interactive agents
+
+  The architecture difference is fundamental: ReActModule is a stateless request/response agent,
+  while ResearchAgentModule is a stateful interactive workflow that requires multiple rounds of
+  human input.
+
+> ["", {"topic": "your research topic here", "max-analysts": 4, "max-turns": 2}]
+When I input this into the webui for researchagentexample, I get the error ClassCastExeption for 
+java.lang.ClassCastException: class java.lang.Long cannot be cast to class java.lang.Integer 
+(java.lang.Long and java.lang.Integer are in module java.base of loader 'bootstrap') 
+
+● Excellent catch! This is a classic Java JSON deserialization issue. When the web UI parses your
+  JSON input, numeric values are being deserialized as Long instead of Integer, but the
+  ResearchAgentModule code expects Integer.
+
+  The Problem
+
+  In ResearchAgentModule.java:
+
+  Line 197:
+  Integer maxAnalysts = (Integer) config.get("max-analysts");
+
+  Line 231:
+  agentNode.emit("generate-question", persona, new ArrayList<ChatMessage>(), (Integer)
+  config.get("max-turns"));
+
+  The code directly casts to Integer, but the web UI's JSON parser returns Long for numeric values.
+
+  ---
+  Why This Happens
+
+  JSON doesn't distinguish between different integer types (int, long, short, etc.). When JSON
+  libraries deserialize numbers without schema information, they often default to Long for safety
+  (to avoid overflow). The web UI's deserialization layer is converting your 4 and 2 into Long
+  objects, not Integer objects.
+
+  ---
+  Workarounds
+
+  Option 1: Try Decimal Notation (Unlikely to Work)
+
+  Sometimes JSON parsers treat decimals differently:
+  ["", {"topic": "your research topic here", "max-analysts": 4.0, "max-turns": 2.0}]
+
+  Option 2: Stick with Command-Line Execution
+
+  This is the recommended approach since ResearchAgentModule has multiple web UI incompatibilities:
+  ./run-example com.rpl.agent.research.ResearchAgentExample
+
+  Option 3: Fix the Module Code (If You Want to Modify)
+
+  You could update ResearchAgentModule to handle both Long and Integer safely. Replace the unsafe
+  casts with:
+
+  // Helper method to safely convert Number to Integer
+  private static Integer toInteger(Object value) {
+      if (value instanceof Integer) {
+          return (Integer) value;
+      } else if (value instanceof Long) {
+          return ((Long) value).intValue();
+      } else if (value instanceof Number) {
+          return ((Number) value).intValue();
+      }
+      throw new IllegalArgumentException("Cannot convert " + value + " to Integer");
+  }
+
+  Then use:
+  Integer maxAnalysts = toInteger(config.get("max-analysts"));
+  Integer maxTurns = toInteger(config.get("max-turns"));
+
+  ---
+  Root Cause Summary
+
+  You're encountering multiple layers of incompatibility between ResearchAgentModule and the web UI:
+
+  1. ✗ Invocation signature mismatch (String + Map vs simple List)
+  2. ✗ Interactive execution model (requires mid-flight HumanInputRequest handling)
+  3. ✗ Type casting issues (Long vs Integer from JSON deserialization)
+
+  The ResearchAgentModule was designed specifically for command-line execution with the interactive
+  initiate()/nextStep() pattern, not for the web UI's simple REST-like invocation model.
+
+  ---
+  Recommended Approach
+
+  Use the command-line runner for ResearchAgentModule. It's not just easier—it's the intended
+  execution path. The web UI is better suited for simpler agents like ReActModule that don't require
+   interactive human feedback loops during execution.
+
+  If you absolutely need web UI support, you'd essentially need to rewrite ResearchAgentModule to:
+  - Accept all parameters upfront (no interactive feedback)
+  - Handle type conversions safely
+  - Use single-step invoke() pattern
+  - Remove HumanInputRequest flows
+
+  This would be a significant refactoring that changes the agent's fundamental design.
+
+> Interesting. Actually, in the WebUI, using ["",{"topic":"I want to learn more about chilitos 
+Chamoy Peach Rings"}] by itself worked. And then I'm able to provide more information afterwards in 
+another entry. 
+
+● Oh, that's a critical finding! This completely changes my understanding. The web UI does support
+  interactive agents with HumanInputRequest flows. Let me revise my analysis:
+
+  What Actually Works
+
+  Correct Web UI Invocation Format
+
+  ["", {"topic": "I want to learn more about chilitos Chamoy Peach Rings"}]
+
+  Why this works:
+
+  Looking at ResearchAgentModule.java:190-194:
+  .node("create-analysts", "feedback", (AgentNode agentNode, String humanFeedback, Map<String,
+  Object> options) -> {
+    Map<String, Object> config = new HashMap<>();
+    config.put("max-analysts", 4);  // ← Default as Integer
+    config.put("max-turns", 2);     // ← Default as Integer
+    config.putAll(options);         // ← Merge user options
+
+  The module sets default values as Integer types first, then merges your options. When you omit
+  max-analysts and max-turns, it uses these defaults, completely avoiding the Long/Integer casting
+  issue!
+
+  Why Including Numeric Parameters Fails
+
+  ["", {"topic": "...", "max-analysts": 4, "max-turns": 2}]  // ✗ FAILS
+
+  When you explicitly provide numeric values:
+  1. Web UI's JSON parser deserializes 4 and 2 as Long
+  2. These get merged into config via config.putAll(options)
+  3. Later casts to Integer fail: (Integer) config.get("max-analysts")
+
+  ---
+  Revised Understanding: Web UI Interactive Support
+
+  The web UI does support interactive agents! When you invoke ResearchAgentModule:
+
+  1. Initial invocation: ["", {"topic": "..."}]
+  2. Web UI displays: "Do you have any feedback on this set of analysts?"
+  3. You respond: In another entry field
+  4. Agent continues: Through the multi-step workflow
+
+  This suggests the web UI has built-in support for the HumanInputRequest pattern that I incorrectly
+   assumed was command-line only.
+
+  ---
+  Corrected Report
+
+  What Works
+
+  - ✅ Minimal format: ["", {"topic": "your topic"}]
+  - ✅ Interactive feedback through web UI
+  - ✅ Multi-step execution
+
+  What Doesn't Work
+
+  - ✗ Explicit numeric parameters: {"max-analysts": 4, "max-turns": 2}
+  - ✗ Reason: JSON Long vs Integer type mismatch
+
+  Solution
+
+  Use the minimal format and rely on defaults:
+  ["", {"topic": "your research topic here"}]
+
+  This uses max-analysts=4 and max-turns=2 automatically.
+
+  ---
+  If You Need Custom Values
+
+  If you need different values for max-analysts or max-turns, the module code would need to be
+  updated to handle the type conversion safely. The issue is specifically at the casting operations
+  (lines 197, 231, 286 in ResearchAgentModule.java).
+
+  Thank you for correcting my assumption! The web UI is more capable than I initially thought.
+
+> Soo, why is it that [{"topic": "your topic"}] doesn't work but rather needs ["", {"topic": "your 
+topic"}] instead? 
+
+● Excellent question! This gets to the heart of how the ResearchAgentModule's invocation signature
+  is designed.
+
+  The Answer: Two-Parameter Signature
+
+  Look at ResearchAgentModule.java:190:
+
+  .node("create-analysts", "feedback", (AgentNode agentNode, String humanFeedback, Map<String,
+  Object> options) -> {
+
+  The entry node create-analysts expects two parameters:
+  1. String humanFeedback - feedback text from the user
+  2. Map<String, Object> options - configuration options including topic
+
+  Why the Empty String?
+
+  When you invoke the agent for the first time, there's no feedback yet (you haven't even seen the
+  analysts), so you pass an empty string "" as a placeholder.
+
+  What You're Providing
+
+  ["", {"topic": "your topic"}]
+  - Position 0: "" → humanFeedback parameter (empty on first run)
+  - Position 1: {"topic": "..."} → options parameter
+
+  If You Only Pass the Map
+
+  [{"topic": "your topic"}]
+  - Position 0: {"topic": "..."} → tries to assign Map to String humanFeedback ✗ Type mismatch!
+  - Position 1: missing → options is undefined
+
+  This would cause a ClassCastException trying to cast a Map to a String.
+
+  The Feedback Loop Design
+
+  The humanFeedback parameter is used in the feedback loop (ResearchAgentModule.java:214-226):
+
+  .node("feedback", Arrays.asList("create-analysts", "questions"),
+        (AgentNode agentNode, List<Map<String, Object>> analysts, Map<String, Object> options) -> {
+    // Shows analysts to user
+    boolean hasFeedback = humanYes(agentNode, prompt);
+    if (hasFeedback) {
+      String feedback = agentNode.getHumanInput("What is your feedback?");
+      agentNode.emit("create-analysts", feedback, options);  // ← Re-invokes with actual feedback
+    } else {
+      agentNode.emit("questions", analysts, options);
+    }
+  })
+
+  The flow:
+  1. First call: ["", {"topic": "..."}] - empty feedback, here's my topic
+  2. Agent generates analysts and asks "Any feedback?"
+  3. If user says yes: Agent internally calls create-analysts again with [userFeedback, options]
+  4. If user says no: Proceeds to generate questions
+
+  Comparison with ReActModule
+
+  ReActModule.java:47 has a single parameter:
+  .node("chat", "chat", (AgentNode agentNode, List<Object> inputMessages) -> {
+
+  So ReActModule can be invoked with just:
+  [["your question"]]
+  - Position 0: [["your question"]] → inputMessages parameter
+
+  ---
+  Summary
+
+  The "" is required because:
+  - ResearchAgentModule's entry node has a two-parameter signature: (String, Map)
+  - The first parameter is for iterative feedback in the analyst refinement loop
+  - On initial invocation, there's no feedback yet, so you pass an empty string
+  - If you omit it, the agent tries to cast your Map to a String, causing a type error
+
+  This design allows the same node to serve as both the initial entry point and the re-entry point
+  after user feedback!
+
+> There's also, on the webui, next to the Manually Run Agent args, which the preview says [arg1, 
+arg2, arg3] (json); there is also another input box that says a preview: Metadata (JSON map, 
+optional). Do you have any idea what that is? 
+
+● Great question! Let me investigate the Agent-o-rama codebase to understand what the metadata field
+   is for.
+
+● Search(pattern: "Metadata.*JSON")
+  ⎿  Found 3 files (ctrl+o to expand)
+
+● Search(pattern: "metadata", glob: "*.clj")
+  ⎿  Found 32 files (ctrl+o to expand)
+
+● Search(pattern: "**/ui*.clj")
+  ⎿  Found 2 files (ctrl+o to expand)
+
+● Search(pattern: "**/invoke*.clj")
+  ⎿  Found 0 files 
+
+● Read(src/cljs/com/rpl/agent_o_rama/ui/agents.cljs)
+  ⎿  Read 434 lines
+
+● Read(src/clj/com/rpl/agent_o_rama/impl/ui/handlers/invocations.clj)
+  ⎿  Read 154 lines
+
+● Perfect! I found it. Let me explain what the metadata field is for:
+
+  Metadata Field: Purpose and Usage
+
+  What It Does
+
+  Looking at the code in invocations.clj:19-26, the metadata field is optional contextual 
+  information that you can attach to agent invocations:
+
+  (defmethod ... :invocations/run-agent
+    [{:keys [client args metadata]} uid]
+    ...
+    (let [metadata (or metadata {})
+          ^AgentInvoke inv (apply aor/agent-initiate-with-context
+                                  client
+                                  {:metadata metadata}  ; ← Passed as context
+                                  args)]
+      ...))
+
+  The metadata is passed to agent-initiate-with-context as part of the invocation context.
+
+  Use Cases
+
+  Metadata is for tagging, organizing, and tracking your agent invocations. Common use cases:
+
+  1. Tracking identifiers
+  {"user_id": "user-123", "session_id": "abc-xyz"}
+  2. A/B testing or experiments
+  {"experiment": "variant-b", "cohort": "power-users"}
+  3. Business context
+  {"customer": "acme-corp", "priority": "high"}
+  4. Version tracking
+  {"model_version": "v2.1", "prompt_version": "20241127"}
+  5. Environment info
+  {"environment": "staging", "region": "us-west"}
+
+  How It's Stored
+
+  From invocations.clj:45, metadata is stored alongside the invocation:
+
+  summary-info-raw (foreign-select-one
+    [(keypath agent-id)
+     (submap [:result :start-time-millis ... :metadata])]  ; ← Retrieved with invocation
+    root-pstate
+    {:pkey agent-task-id})
+
+  Modifying Metadata Post-Invocation
+
+  The web UI also supports modifying metadata after an invocation has started
+  (invocations.clj:135-153):
+
+  - Set metadata: Add or update key-value pairs on an existing invocation
+  - Remove metadata: Delete keys from an invocation's metadata
+
+  Example Usage in Web UI
+
+  Args: ["", {"topic": "Chamoy Peach Rings"}]
+  Metadata: {"experiment": "research-v2", "user": "kwalerie", "priority": "low"}
+
+  This metadata will be stored with the invocation and can be used for:
+  - Filtering invocations later
+  - Analytics and reporting
+  - Debugging (knowing which experiment/version produced which results)
+  - Organizing datasets
+
+  Key Point
+
+  Metadata does not affect the agent's execution logic—it's purely for your own organizational and
+  tracking purposes. The agent receives only the args, while the metadata is stored alongside the
+  invocation for retrieval and analysis later.
+
+> Can you help me understand better what the first text box means by [arg1, arg2, arg3, ...] (json)?
+ Does that mean that I need to track each modules' expected input schema? 
+
+● Excellent question! Yes, you're exactly right—you do need to know each module's expected input 
+  schema to invoke it correctly from the web UI.
+
+  What [arg1, arg2, arg3] Means
+
+  The text box expects a JSON array where each element corresponds to a parameter in the agent's
+  entry node function signature.
+
+  Position Matters
+
+  The array elements map positionally to the function parameters:
+
+  ReActModule (ReActModule.java:47):
+  .node("chat", "chat", (AgentNode agentNode, List<Object> inputMessages) -> {
+  - 1 parameter: inputMessages
+  - Web UI input: [["What is the capital of France?"]]
+    - Position 0 → inputMessages = ["What is the capital of France?"]
+
+  ResearchAgentModule (ResearchAgentModule.java:190):
+  .node("create-analysts", "feedback", (AgentNode agentNode, String humanFeedback, Map<String,
+  Object> options) -> {
+  - 2 parameters: humanFeedback, options
+  - Web UI input: ["", {"topic": "Chamoy Peach Rings"}]
+    - Position 0 → humanFeedback = ""
+    - Position 1 → options = {"topic": "Chamoy Peach Rings"}
+
+  ---
+  How to Discover a Module's Input Schema
+
+  Method 1: Read the Source Code
+
+  Look at the first node defined in the module (the entry node):
+
+  topology.newAgent("MyAgent")
+      .node("entry-node", "next-node", (AgentNode agentNode, Type1 param1, Type2 param2) -> {
+          //                                                    ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+          //                                                    1st parameter   2nd parameter
+
+  The parameters after AgentNode agentNode determine what you pass in the web UI.
+
+  Method 2: Check the Example Runner
+
+  Look at how the command-line example invokes the agent:
+
+  ReActExample.java:62:
+  Object result = agent.invoke(Arrays.asList(userInput));
+  - Passes a List with one element → Web UI: [["question"]]
+
+  ResearchAgentExample.java:37-39:
+  Map<String, Object> input = new HashMap<>();
+  input.put("topic", topic);
+  AgentInvoke invoke = researcher.initiate("", input);
+  - Passes two arguments: empty string "" and a Map → Web UI: ["", {"topic": "..."}]
+
+  Method 3: Check Module Documentation/README
+
+  Many example modules include a README explaining the invocation format. For example, from your
+  quickstart-agents.org:18:
+
+  This agent takes in a single list of messages as an argument, so to invoke from the UI give input 
+  of the form [["What is the 5th tallest mountain?"]].
+
+  ---
+  Common Patterns
+
+  Single String Parameter
+
+  .node("entry", (AgentNode node, String question) -> {...})
+  Web UI: ["What is the capital of France?"]
+
+  Multiple Parameters
+
+  .node("entry", (AgentNode node, String input, Map<String, Object> config) -> {...})
+  Web UI: ["user input", {"setting": "value"}]
+
+  List/Array Parameter
+
+  .node("entry", (AgentNode node, List<Object> messages) -> {...})
+  Web UI: [["message1", "message2"]] (array containing an array)
+
+  Complex Objects
+
+  .node("entry", (AgentNode node, Map<String, Object> request) -> {...})
+  Web UI: [{"query": "...", "filters": ["a", "b"]}]
+
+  ---
+  Best Practices
+
+  1. Document your module's input schema in a README or comments
+  2. Use descriptive parameter names so the signature is self-documenting
+  3. Provide validation in your node logic to give clear error messages
+  4. Consider default values like ResearchAgentModule does (lines 192-194) to make invocation easier
+
+  ---
+  Quick Reference Card
+
+  | Module              | Entry Node Signature          | Web UI Format          |
+  |---------------------|-------------------------------|------------------------|
+  | ReActModule         | (List<Object> messages)       | [["question"]]         |
+  | ResearchAgentModule | (String feedback, Map config) | ["", {"topic": "..."}] |
+
+  So yes, unfortunately there's no automatic schema discovery in the web UI—you need to know the
+  module's expected inputs. Think of it like calling a function: you need to know the function
+  signature to call it correctly!
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+>  
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ? for shortcuts
+

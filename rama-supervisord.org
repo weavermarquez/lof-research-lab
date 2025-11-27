@@ -272,3 +272,6 @@ tail -n 100 /dev/shm/agent-ui*.log 2>/dev/null
   - logging (stdout/stderr to files)
   - autorestart on failure
   - stop/kill of process groups on Service stop.
+
+- Note :: =rama shutdownCluster= does NOT terminate the Conductor process after killing all workers.
+    
