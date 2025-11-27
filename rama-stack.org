@@ -1,0 +1,298 @@
+#+TITLE: Rama + Agent-o-Rama Demo Stack (Zo Services)
+#+AUTHOR: valerie/zo
+#+DESCRIPTION: Literate ops for spinning a single-node Rama cluster and Agent-o-Rama UI on Zo. Source blocks tangle to runnable scripts used by Zo Services.
+#+OPTIONS: toc:2 num:nil
+
+* Overview
+This document captures the minimal, demo-friendly setup for:
+- A Rama dev single node cluster configuration:
+  - Zookeeper + Conductor + Supervisor (Cluster UI on 8888)
+  - Agent-o-Rama UI (on 1974) pointing at the Rama release in ~/root/rama~
+
+Each component has a small wrapper script that:
+- starts the process with simple logging to =/dev/shm/…=
+- waits for the HTTP UI to come up
+- traps termination for clean shutdown
+
+Use these scripts as Zo Service entrypoints.
+
+References:
+- Rama configs (defaults, ports, semantics): https://redplanetlabs.com/docs/~/all-configs.html
+- Operating Rama clusters (roles, UI): https://redplanetlabs.com/docs/~/operating-rama.html
+- Agent-o-Rama Quickstart (UI, command): https://github.com/redplanetlabs/agent-o-rama/wiki/Quickstart
+
+* Dependencies
+For a smooth demo on a single node, install these dependencies on the host where Zo Services run:
+
+- Java Runtime: OpenJDK 21 (LTS) recommended. Agent‑o‑Rama artifacts are compiled with class file version 65 (Java 21). Running on Java 17 (class file 61) will fail with UnsupportedClassVersionError.
+- Python: python3 (3.11+ is fine)
+- Maven: 3.8+ (needed for building/developing modules; not strictly required to run the prebuilt aor UI)
+- Zookeeper: optional when using =./rama devZookeeper=; required only if you intend to run an external ZooKeeper instead of Rama’s dev server.
+
+Example install (Debian 12):
+#+begin_src bash :tangle no
+apt-get update -y
+# Prefer JRE 21; if not available in your repo, use Debian backports or Adoptium Temurin 21
+apt-get install -y openjdk-21-jre-headless python3 maven
+# Only if you are NOT using ./rama devZookeeper:
+apt-get install -y zookeeper
+
+# Quick sanity checks (optional)
+java -version
+python3 --version
+mvn -version
+#+end_src
+
+Notes:
+- If =openjdk-21-jre-headless= is not present in your apt repos, consider enabling bookworm-backports or installing Temurin 21 from Adoptium.
+- Rama’s =devZookeeper= is fine for demos; for production use, deploy a managed ZK.
+
+** Debian oldstable (bullseye) – installing Java 21
+If the distro repositories do not provide OpenJDK 21, use one of the vendor repositories below.
+
+Option A: Eclipse Temurin (Adoptium) apt repo[^a]
+#+begin_src bash :tangle no
+# Prereqs
+apt-get update -y && apt-get install -y wget apt-transport-https gpg ca-certificates
+
+# GPG key
+wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \
+  | gpg --dearmor | tee /usr/share/keyrings/adoptium.gpg > /dev/null
+
+# Repo (bullseye)
+echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bullseye main" \
+  | tee /etc/apt/sources.list.d/adoptium.list
+
+apt-get update -y
+# Install runtime or JDK
+a pt-get install -y temurin-21-jre || apt-get install -y temurin-21-jdk
+
+# Verify
+java -version
+#+end_src
+
+
+Note: Removing =default-jre= or =default-jre-headless= may cause APT to auto-remove =zookeeper=. For this demo we use Rama’s =devZookeeper=, so that’s fine. If you want a system ZooKeeper later, reinstall it after Java 21 is in place.
+
+After install
+- Ensure =JAVA_HOME= points to the 21 installation (e.g., Temurin under =/usr/lib/jvm/temurin-21-*=).
+- Either rely on Debian alternatives (most vendor packages register =/usr/bin/java=), or explicitly set in Zo Service:
+  - Env: =JAVA_HOME=/usr/lib/jvm/temurin-21-...= and prepend =PATH="$JAVA_HOME/bin:$PATH"=
+
+[^a]: https://adoptium.net/installation/linux/
+
+* Files and layout
+- Rama release root: =/root/rama=
+  - Data dir: =/root/rama/local-rama-data=
+  - Script (tangled): =/root/rama/start-cluster.sh=
+- Agent‑o‑Rama root: =/root/agent-o-rama=
+  - Script (tangled): =/root/agent-o-rama/start-agents.sh=
+
+* Monitoring & logs
+Where to look:
+- Service wrappers (Zo): =/dev/shm/<service_name>.log= and =/dev/shm/<service_name>_err.log=
+- Child processes:
+  - Rama: =/dev/shm/rama-cluster/*.log= (zookeeper.log, conductor.log, supervisor.log)
+  - Agent‑o‑Rama: =/dev/shm/agent-o-rama/aor.log=
+
+Quick tails:
+#+begin_src bash :tangle no
+# Service logs
+for n in rama-cluster-ui agent-o-rama-ui; do
+  tail -n 100 "/dev/shm/${n}.log" 2>/dev/null || true
+  tail -n 100 "/dev/shm/${n}_err.log" 2>/dev/null || true
+done
+
+# Child logs
+tail -n 200 /dev/shm/rama-cluster/*.log 2>/dev/null || true
+tail -n 200 /dev/shm/agent-o-rama/aor.log 2>/dev/null || true
+#+end_src
+
+Optional script enhancements (not enabled by default):
+- On timeout or =trap EXIT=, dump the last N lines of child logs to the service log for quicker diagnosis.
+- Emit a one-line summary every N seconds (PID, open port, numSupervisors).
+
+Example snippet to include at the end of wrappers (idea):
+#+begin_src bash :tangle no
+on_timeout() {
+  echo "==== last 200 lines of Rama logs ===="
+  tail -n 200 /dev/shm/rama-cluster/*.log 2>/dev/null || true
+}
+# call on_timeout from timeout branches or in cleanup()
+#+end_src
+
+* Orchestration without systemd
+We ensure ordering and resilience without systemd using semantic readiness and supervision inside the wrappers:
+
+- start-cluster.sh waits for =conductorReady=true= and (best-effort) for =numSupervisors >= RAMA_SUP_MIN= before declaring the cluster up.
+- start-agents.sh passively waits for Conductor READY before launching AOR, and monitors it; if the Conductor becomes unready, AOR is stopped and restarted after readiness returns.
+- Timeouts are configurable via env:
+  - =RAMA_READY_TIMEOUT= (default 300s)
+  - =RAMA_SUP_MIN= (default 1)
+  - =UI_WAIT_TIMEOUT= (default 180s)
+  - =AOR_READY_TIMEOUT= (default 180s)
+  - =RECHECK= (default 2s)
+- Cleanup prefers graceful =./rama shutdownCluster=, falling back to signal kills.
+- Zo Services auto-restart if the entrypoint process exits unexpectedly. To avoid restart thrash, the wrappers keep running and supervise readiness internally.
+
+* Config notes (single node demo)
+- =zookeeper.servers: ["127.0.0.1"]=, =zookeeper.port: 2000= (explicit, though defaults are fine)
+- =conductor.host: "127.0.0.1"=, =conductor.port: 1973= (explicit)
+- =cluster.ui.port: 8888= (explicit)
+- =local.dir: "/root/rama/local-rama-data"=
+
+Example ~rama.yaml~ (for reference; not tangled):
+#+begin_src yaml :tangle no
+conductor.host: "127.0.0.1"
+conductor.port: 1973
+cluster.ui.port: 8888
+local.dir: "/root/rama/local-rama-data"
+zookeeper.servers:
+  - "127.0.0.1"
+zookeeper.port: 2000
+#+end_src
+
+* Troubleshooting
+- UnsupportedClassVersionError (class file 65 vs 61): install/run Java 21 (OpenJDK 21). Java 17 will not load artifacts compiled for 21.
+- Service logs not showing child output: check child logs under =/dev/shm/rama-cluster= and =/dev/shm/agent-o-rama=.
+- UI unreachable over the public URL: ensure the local port responds, then verify the Zo Service points to the correct entrypoint and port.
+
+* Script: start Rama cluster (UI on 8888)
+Tangles to =/root/rama/start-cluster.sh=.
+
+#+begin_src bash :tangle start-cluster.sh
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cd "$(dirname "$0")"
+
+echo "[rama-wrapper] starting Rama single-node cluster..."
+
+# 1) Dev Zookeeper (background) + quick sanity check
+./rama devZookeeper &
+ZK_PID=$!
+echo "[rama-wrapper] devZookeeper started with pid=$ZK_PID"
+sleep 1
+if ! kill -0 "$ZK_PID" 2>/dev/null; then
+  echo "[rama-wrapper] devZookeeper died immediately; aborting"
+  exit 1
+fi
+
+# 2) Rama Supervisor (background) + quick sanity check
+./rama supervisor &
+SUP_PID=$!
+echo "[rama-wrapper] supervisor started with pid=$SUP_PID"
+sleep 1
+if ! kill -0 "$SUP_PID" 2>/dev/null; then
+  echo "[rama-wrapper] supervisor died immediately; aborting"
+  exit 1
+fi
+
+# 3) Optional: log numSupervisors (best-effort only)
+if out=$(./rama numSupervisors 2>/dev/null | tr -d '\r'); then
+  case "$out" in
+    ''|*[!0-9]*) ;;
+    *)
+      echo "[rama-wrapper] numSupervisors currently reported: $out"
+      ;;
+  esac
+fi
+
+# 4) Conductor in foreground
+echo "[rama-wrapper] starting conductor in foreground..."
+exec ./rama conductor
+#+end_src
+
+* Script: start Agent‑o‑Rama UI (on 1974)
+Tangles to =/root/agent-o-rama/start-agents.sh=.
+- Uses =AOR_PORT= (default 1974) and =RAMA_ROOT= (default =/root/rama=).
+
+#+begin_src bash :tangle /root/agent-o-rama/start-agents.sh
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cd "$(dirname "$0")"
+umask 022
+
+PORT="${AOR_PORT:-1974}"
+RAMA_ROOT="${RAMA_ROOT:-/root/rama}"
+LOG_DIR="/dev/shm/agent-o-rama"
+mkdir -p "$LOG_DIR"
+
+AOR_READY_TIMEOUT="${AOR_READY_TIMEOUT:-180}"   # seconds to wait for UI
+RECHECK="${RECHECK:-2}"                         # seconds between checks
+
+wait_conductor_ready() {
+  while true; do
+    if out="$("$RAMA_ROOT"/rama conductorReady 2>/dev/null)"; then
+      [ "$(printf '%s' "$out" | tr -d '\r')" = "true" ] && return 0
+    fi
+    sleep "$RECHECK"
+  done
+}
+
+start_aor() {
+  ./aor --rama "$RAMA_ROOT" --port "$PORT" > "$LOG_DIR/aor.log" 2>&1 &
+  AOR_PID=$!
+  echo "agent-o-rama pid=$AOR_PID (port=$PORT, rama=$RAMA_ROOT)"
+}
+
+wait_aor_http_once() {
+  for i in $(seq 1 "$AOR_READY_TIMEOUT"); do
+    curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null 2>&1 && { echo "Agent-o-rama UI is responding"; return 0; }
+    sleep 1
+  done
+  return 1
+}
+
+cleanup() {
+  echo "Shutting down agent-o-rama..."
+  kill $AOR_PID 2>/dev/null || true
+  sleep 2
+  kill -9 $AOR_PID 2>/dev/null || true
+  echo "=== recent aor logs ==="
+  tail -n 100 "$LOG_DIR/aor.log" 2>/dev/null || true
+}
+trap cleanup SIGINT SIGTERM
+
+# Supervise: wait for Conductor READY, start AOR, monitor, recycle on conductor unready
+while true; do
+  echo "Waiting for Rama Conductor READY..."
+  wait_conductor_ready
+  start_aor
+  wait_aor_http_once || echo "AOR UI did not become ready within ${AOR_READY_TIMEOUT}s (continuing to supervise)"
+
+  while kill -0 $AOR_PID 2>/dev/null; do
+    if out="$("$RAMA_ROOT"/rama conductorReady 2>/dev/null)"; then
+      [ "$(printf '%s' "$out" | tr -d '\r')" = "true" ] || { echo "Conductor not READY; cycling AOR"; kill $AOR_PID 2>/dev/null || true; break; }
+    fi
+    sleep "$RECHECK"
+  done
+
+  sleep 2
+done
+#+end_src
+
+* Zo Services wiring
+Suggested services for demo clarity:
+
+** rama-cluster-ui
+- Protocol: http
+- Port: 8888
+- Entrypoint: =/root/rama/start-cluster.sh=
+- Workdir: =/root/rama=
+- Env: none required
+
+** agent-o-rama-ui
+- Protocol: http
+- Port: 1974
+- Entrypoint: =/root/agent-o-rama/start-agents.sh=
+- Workdir: =/root/agent-o-rama=
+- Env: =OPENAI_API_KEY=, =TAVILY_API_KEY= (and any other tool creds)
+
+* Notes
+- These wrappers are intentionally minimal for demo. For production, consider externalized logging, health endpoints, and auth in front of the UIs.
+
+
+
+

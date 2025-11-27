@@ -1,0 +1,439 @@
+📦[kwalerie@femacs agent-o-rama]$ ls
+dev  examples  LICENSE  package.json  package-lock.json  playwright.config.js  project.clj  readme  README.md  resource  scripts  shadow-cljs.edn  src  test  VERSION
+📦[kwalerie@femacs agent-o-rama]$ cd examples/java/
+📦[kwalerie@femacs java]$ ./run-example com.rpl.agent.research.ResearchAgent
+[WARNING] Unable to find the root directory. Create a .mvn directory in the root directory or add the root="true" attribute on the root project's model to identify it.
+[INFO] Scanning for projects...
+^C
+📦[kwalerie@femacs java]$ ./run-example com.rpl.agent.research.ResearchExample
+[WARNING] Unable to find the root directory. Create a .mvn directory in the root directory or add the root="true" attribute on the root project's model to identify it.
+[INFO] Scanning for projects...
+[INFO] Loaded 21710 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-metadata.xml
+Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/mojo/maven-metadata.xml
+Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-metadata.xm
+Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/mojo/maven-metadata.xml (21 k
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency
+Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency-
+[INFO] 
+[INFO] ---------------------------------------------< com.rpl.agent:java-examples >---------------------
+[INFO] Building Agent Examples 1.0.0
+[INFO]   from pom.xml
+[INFO] ---------------------------------------------------------[ jar ]---------------------------------
+[INFO] Loaded 74 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapsh
+[INFO] Loaded 4 auto-discovered prefixes for remote repository plexus.snapshots (prefixes-plexus.snapsho
+[WARNING] Version not locked for default bindings plugins [maven-clean-plugin, maven-resources-plugin], 
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to nexus-releases-87c6a4697ef669d4c304df5
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to nexus-snapshots-b2b6650c31e1eb1666ae41
+[WARNING] 1 problem was encountered while building the effective model for 'org.javassist:javassist:jar:
+[INFO] Loaded 21710 auto-discovered prefixes for remote repository sonatype-oss-public (prefixes-sonatyp
+[INFO] 
+[INFO] --- clean:3.4.0:clean (default-clean) @ java-examples ---
+[INFO] Deleting /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ java-examples ---
+[INFO] skip non existing resourceDirectory /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ java-examples ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 23 source files with javac [debug release 21] to target/classes
+[INFO] /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/src/main/
+[INFO] /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/src/main/
+[INFO] 
+[INFO] --- dependency:3.9.0:build-classpath (default-cli) @ java-examples ---
+[INFO] Wrote classpath file '/var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/e
+[INFO] -------------------------------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] -------------------------------------------------------------------------------------------------
+[INFO] Total time:  10.779 s
+[INFO] Finished at: 2025-11-26T23:58:06-05:00
+[INFO] -------------------------------------------------------------------------------------------------
+Error: Could not find or load main class com.rpl.agent.research.ResearchExample
+Caused by: java.lang.ClassNotFoundException: com.rpl.agent.research.ResearchExample
+📦[kwalerie@femacs java]$ mvn --version
+Apache Maven 4.0.0-rc-5 (fb3ecaef88106acb40467a450248dfdbd75f3b35)
+Maven home: /var/home/kwalerie/.sdkman/candidates/maven/current
+Java version: 25.0.1, vendor: Eclipse Adoptium, runtime: /var/home/kwalerie/.sdkman/candidates/java/25.0
+Default locale: en_CA, platform encoding: UTF-8
+OS name: "linux", version: "6.17.1-300.fc42.x86_64", arch: "amd64", family: "unix"
+📦[kwalerie@femacs java]$ ls
+pom.xml  README.md  run-example  src  target
+📦[kwalerie@femacs java]$ ./run-example com.rpl.agent.react.ReActExample
+[WARNING] Unable to find the root directory. Create a .mvn directory in the root directory or add the ro
+ot="true" attribute on the root project's model to identify it.
+[INFO] Scanning for projects...
+[INFO] Loaded 21710 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[INFO] 
+[INFO] --------------------------------< com.rpl.agent:java-examples >---------------------------------
+[INFO] Building Agent Examples 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------------------[ jar ]---------------------------------------------
+[INFO] Loaded 74 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapsh
+ots-c1d4c55f9308e5ac18a4069bed41dca64d85c515.txt)
+[INFO] Loaded 4 auto-discovered prefixes for remote repository plexus.snapshots (prefixes-plexus.snapsho
+ts-9dedea94451709299d055319c137abeb30aacdef.txt)
+[WARNING] Version not locked for default bindings plugins [maven-clean-plugin, maven-resources-plugin], 
+you should define versions in pluginManagement section of your pom.xml or parent
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to nexus-releases-87c6a4697ef669d4c304df5
+727ca6995c717ec7c (https://nexus.redplanetlabs.com/repository/maven-releases): HTTP Status: 401
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to nexus-snapshots-b2b6650c31e1eb1666ae41
+462e7406a1961dd600 (https://nexus.redplanetlabs.com/repository/maven-snapshots): HTTP Status: 401
+[WARNING] 1 problem was encountered while building the effective model for 'org.javassist:javassist:jar:
+3.18.1-GA' during dependency collection step for project (use -X to see details)
+[INFO] Loaded 21710 auto-discovered prefixes for remote repository sonatype-oss-public (prefixes-sonatyp
+e-oss-public-6e704bfb0d6058d598b1a56f0fc90c9cc4c5bf16.txt)
+[INFO] 
+[INFO] --- clean:3.4.0:clean (default-clean) @ java-examples ---
+[INFO] Deleting /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/
+target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ java-examples ---
+[INFO] skip non existing resourceDirectory /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/
+agent-o-rama/examples/java/src/main/resources
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ java-examples ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 23 source files with javac [debug release 21] to target/classes
+[INFO] /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/src/main/
+java/com/rpl/agent/basic/HumanInputAgent.java: Some input files use unchecked or unsafe operations.
+[INFO] /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/src/main/
+java/com/rpl/agent/basic/HumanInputAgent.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- dependency:3.9.0:build-classpath (default-cli) @ java-examples ---
+[INFO] Wrote classpath file '/var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/e
+xamples/java/cp.txt'.
+[INFO] ------------------------------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------------------------------
+[INFO] Total time:  7.052 s
+[INFO] Finished at: 2025-11-26T23:59:03-05:00
+[INFO] ------------------------------------------------------------------------------------------------
+Starting ReAct Agent Example...
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by org.rocksdb.RocksDB in an unnamed module (file
+:/var/home/kwalerie/.m2/repository/org/rocksdb/rocksdbjni/7.9.2/rocksdbjni-7.9.2.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+This agent can search the web to answer your questions.
+
+Ask your question (agent has web search access): Beep! What are chamoy peach rings?
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::invokeCleaner has been called by clojure.core$eval156771$fn__156772
+WARNING: Please consider reporting this to the maintainers of class clojure.core$eval156771$fn__156772
+WARNING: sun.misc.Unsafe::invokeCleaner will be removed in a future release
+
+Agent: Chamoy peach rings are a type of candy that combines the flavors of sweet and tangy. They typical
+ly consist of a gummy ring shaped like a peach slice and are coated in chamoy, which is a savory sauce m
+ade from pickled fruit, chili powder, and other spices. This gives the candy a unique flavor profile tha
+t appeals to those who enjoy a mix of sweet, sour, and spicy tastes. Chamoy peach rings are popular in m
+any Latin American cultures and are often enjoyed as a snack or a treat.
+
+press enter to close the ui, default port is 1974
+
+
+
+
+
+
+
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ 
+📦[kwalerie@femacs java]$ ./run-example com.rpl.agent.research.ResearchAgentExample
+[WARNING] Unable to find the root directory. Create a .mvn directory in the root directory or add the ro
+ot="true" attribute on the root project's model to identify it.
+[INFO] Scanning for projects...
+[INFO] Loaded 21710 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+Downloading from central: https://repo.maven.apache.org/maven2/org/codehaus/mojo/maven-metadata.xml
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-metadata.x
+ml
+Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-metadata.xm
+l (14 kB at 91.9 kB/s)
+Downloaded from central: https://repo.maven.apache.org/maven2/org/codehaus/mojo/maven-metadata.xml (21 k
+B at 108.0 kB/s)
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency
+-plugin/maven-metadata.xml
+Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-dependency-
+plugin/maven-metadata.xml (1.3 kB at 14.1 kB/s)
+[INFO] 
+[INFO] --------------------------------< com.rpl.agent:java-examples >---------------------------------
+[INFO] Building Agent Examples 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------------------[ jar ]---------------------------------------------
+[INFO] Loaded 74 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapsh
+ots-c1d4c55f9308e5ac18a4069bed41dca64d85c515.txt)
+[INFO] Loaded 4 auto-discovered prefixes for remote repository plexus.snapshots (prefixes-plexus.snapsho
+ts-9dedea94451709299d055319c137abeb30aacdef.txt)
+[WARNING] Version not locked for default bindings plugins [maven-clean-plugin, maven-resources-plugin], 
+you should define versions in pluginManagement section of your pom.xml or parent
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to nexus-snapshots-b2b6650c31e1eb1666ae41
+462e7406a1961dd600 (https://nexus.redplanetlabs.com/repository/maven-snapshots): HTTP Status: 401
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to nexus-releases-87c6a4697ef669d4c304df5
+727ca6995c717ec7c (https://nexus.redplanetlabs.com/repository/maven-releases): HTTP Status: 401
+[WARNING] 1 problem was encountered while building the effective model for 'org.javassist:javassist:jar:
+3.18.1-GA' during dependency collection step for project (use -X to see details)
+[INFO] Loaded 21710 auto-discovered prefixes for remote repository sonatype-oss-public (prefixes-sonatyp
+e-oss-public-6e704bfb0d6058d598b1a56f0fc90c9cc4c5bf16.txt)
+[INFO] 
+[INFO] --- clean:3.4.0:clean (default-clean) @ java-examples ---
+[INFO] Deleting /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/
+target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ java-examples ---
+[INFO] skip non existing resourceDirectory /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/
+agent-o-rama/examples/java/src/main/resources
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ java-examples ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 23 source files with javac [debug release 21] to target/classes
+[INFO] /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/src/main/
+java/com/rpl/agent/basic/HumanInputAgent.java: Some input files use unchecked or unsafe operations.
+[INFO] /var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/examples/java/src/main/
+java/com/rpl/agent/basic/HumanInputAgent.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- dependency:3.9.0:build-classpath (default-cli) @ java-examples ---
+[INFO] Wrote classpath file '/var/home/kwalerie/Documents/org/30-fractal/lof-research-lab/agent-o-rama/e
+xamples/java/cp.txt'.
+[INFO] ------------------------------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------------------------------
+[INFO] Total time:  10.999 s
+[INFO] Finished at: 2025-11-27T00:02:22-05:00
+[INFO] ------------------------------------------------------------------------------------------------
+Starting Research Agent Example...
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by org.rocksdb.RocksDB in an unnamed module (file
+:/var/home/kwalerie/.m2/repository/org/rocksdb/rocksdbjni/7.9.2/rocksdbjni-7.9.2.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+00:03:29.558 WARN  [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] -thread.queue-runner - Task
+ thread event took excessive amount of time {:event-class rpl.rama.distributed.core.ComputationMetaEvent
+, :event-tags [:bundler], :elapsed-millis 276, :zk-stats [{:minRequestLatency 0, :avgRequestLatency 0.45
+31, :maxRequestLatency 18, :outstandingRequests 0, :numAliveConnections 4}]}
+Enter a topic: I want to learn about trans people in the Enlightenment.
+
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::invokeCleaner has been called by clojure.core$eval146259$fn__146260
+WARNING: Please consider reporting this to the maintainers of class clojure.core$eval146259$fn__146260
+WARNING: sun.misc.Unsafe::invokeCleaner will be removed in a future release
+Do you have any feedback on this set of analysts? Answer 'yes' or 'no'.
+
+{role=Cultural Historian, affiliation=University of Edinburgh, name=Dr. Olivia Hart, description=Dr. Har
+t specializes in the intersections of gender, sexuality, and politics during the Enlightenment. Her rese
+arch focuses on how trans identities were perceived and represented in literature and art of the time, e
+xamining both historical texts and contemporary interpretations.}
+{role=Gender Studies Scholar, affiliation=University of London, name=Professor James L. Porteous, descri
+ption=Professor Porteous studies the evolving understanding of gender and identity during the Enlightenm
+ent era. His work critically analyzes the societal frameworks that influenced the lives of trans individ
+uals and advocates for the incorporation of diverse narratives in historical discourse.}
+{role=Social Theorist, affiliation=Amsterdam School for Cultural Analysis, name=Dr. Elise VanderMeer, de
+scription=Dr. VanderMeer investigates the social and cultural implications of trans identities in the 18
+th century. Her focus is on how Enlightenment philosophy shaped individual rights and self-identificatio
+n, as well as the pushback against normative gender binaries during this transformative period.}
+{role=Archival Analyst, affiliation=Historical Transitions Project, name=Researcher Tommy Chen, descript
+ion=Tommy Chen's work involves uncovering and curating primary sources related to trans individuals in t
+he Enlightenment. He seeks to elevate marginalized voices and narratives through archival research, aimi
+ng to provide a more nuanced understanding of trans experiences in the context of societal change.}
+>> no
+
+Final Research Report:
+====================
+# Trans Identities in the Enlightenment: Uncovering Historical Narratives
+
+## Introduction
+
+This report explores the often-overlooked narratives of trans individuals during the Enlightenment, a pe
+riod marked by intellectual upheaval and evolving concepts of identity. It begins with Tommy Chen's arch
+ival research unveiling connections between secret societies and identity politics, emphasizing how spac
+es for expression emerged despite societal constraints. We then analyze Enlightenment reflections on gen
+der through the works of philosophers like Rousseau and Wollstonecraft, revealing underlying tensions ar
+ound gender norms. The cultural representations, particularly those of figures like the Chevalier d'Éon,
+ highlight complex dialogues around fluidity. Ultimately, this report demonstrates how Enlightenment dis
+course laid the groundwork for modern understandings of gender identity.
+
+---
+
+The Enlightenment period, often characterized by its intellectual and cultural revolutions, serves as a 
+crucial backdrop for understanding trans identities and gender fluidity. This era witnessed early discus
+sions on identity, freedom, and individual rights, albeit within the constraints of its rigid societal n
+orms. Surprisingly, through clandestine practices and secret societies, trans individuals managed to exp
+ress their identities subtly, contributing to a nuanced cultural landscape.
+
+Research highlights the role of secret societies, such as the Bavarian Illuminati, as platforms where in
+dividuals engaged with themes of identity beyond societal boundaries. These settings facilitated a form 
+of expression that, while not overtly documented, allowed members to explore and present alternative ide
+ntities, revealing the undercurrents of identity politics during the Enlightenment [1].
+
+Philosophical discourse of the time further shaped the evolution of gender constructs. Enlightenment thi
+nkers like Jean-Jacques Rousseau and Mary Wollstonecraft played pivotal roles in shaping contemporary no
+tions of gender. While Rousseau's ideas promoted natural freedoms, he paradoxically supported traditiona
+l gender roles, sparking debate about women’s roles in society and education. Conversely, Wollstonecraft
+'s advocacy for women's rights challenged these norms, thereby reflecting broader tensions regarding gen
+der identity within Enlightenment thought [2][3].
+
+Literature and artistic expressions of the period also reflected evolving perceptions of gender. For ins
+tance, Denis Diderot's writings and the life of the Chevalier d'Éon reveal a societal grappling with gen
+der norms, thereby marking a significant cultural dialogue on identity. The Chevalier d'Éon, often celeb
+rated yet also scrutinized, epitomizes how complex identities were both represented and resisted, mergin
+g admiration with controversy [1][2].
+
+Modern interpretations of these historical contexts have allowed contemporary theorists, like Judith But
+ler, to challenge entrenched binary notions of gender, encouraging a closer examination of figures like 
+the Chevalier d'Éon as embodiments of fluidity. Today's artistic critiques and literary narratives reinv
+igorate the discourse surrounding identity, bridging historical complexities with present-day dialogues 
+[1][2].
+
+The Enlightenment was thus a paradoxical era that fostered a cultural environment ripe for exploration o
+f gender and identity, while simultaneously reinforcing existing binaries. The interplay between advocac
+y for individual rights, the rise of medical discourse surrounding sexual and gender diversity, and the 
+influence of social and political ideals contributed to early frameworks that would later inform the rec
+ognition of trans identities. Collectively, these perspectives enrich our understanding of trans experie
+nces in the Enlightenment, inviting deeper conversations about identity that resonate today [1].
+
+
+---
+
+## Conclusion
+
+The exploration of trans identities during the Enlightenment reveals a dynamic interplay between societa
+l norms and the burgeoning awareness of gender fluidity. Through Tommy Chen's archival research, we disc
+over hidden narratives connecting secret societies to discussions on identity, emphasizing that spaces f
+or expression existed even amidst constraints. Enlightenment thinkers like Rousseau and Wollstonecraft e
+ngaged in crucial dialogues about gender, highlighting tensions between progressive ideas and entrenched
+ binaries. Cultural reflections and modern interpretations illuminate historical complexities, reinforci
+ng that early discussions of identity were nuanced and influential. Ultimately, this ongoing reevaluatio
+n enriches our understanding of trans narratives in shaping contemporary gender discourse.
+
+## Sources
+[1] https://en.wikipedia.org/wiki/Illuminati  
+[2] https://www.cambridge.org/core/books/enlightenment/enlightenment-thinking-about-gender/959EAC6B4384A
+B2852143CFD8DECC521  
+[3] https://warwick.ac.uk/fac/arts/history/students/modules/hi253/lectures/lecture4/  
+press enter to close the ui, default port is 1974V^[ 00:09:56.736 ERROR [] rama.impl.agent-node - Error 
+during agent node execution {:node create-analysts, :invoke-id #uuid "019ac3b7-d752-7cd7-bc99-48871efd7d
+e6"}
+java.lang.ClassCastException: class com.rpl.agent.research.ResearchAgentModule$$Lambda/0x00000000944ee2d
+0 cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2 (com.rpl.agent.research.ResearchAgent
+Module$$Lambda/0x00000000944ee2d0 and com.rpl.agentorama.ops.RamaVoidFunction2 are in unnamed module of 
+loader 'app')
+        at com.rpl.agent_o_rama.impl.helpers$convert_void_jfn$fn__7582.invoke(helpers.clj:80)
+        at clojure.lang.AFn.applyToHelper(AFn.java:156)
+        at clojure.lang.AFn.applyTo(AFn.java:144)
+        at clojure.core$apply.invokeStatic(core.clj:669)
+        at clojure.core$apply.invoke(core.clj:662)
+        at com.rpl.agent_o_rama.impl.agent_node$node_event$fn__15819.invoke(agent_node.clj:797)
+        at clojure.lang.AFn.run(AFn.java:22)
+        at com.rpl.agentorama.impl.AgentNodeExecutorTaskGlobal.lambda$submitTask$0(AgentNodeExecutorTask
+Global.java:28)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:545)
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:328)
+        at java.base/java.util.concurrent.ThreadPerTaskExecutor$ThreadBoundFuture.run(ThreadPerTaskExecu
+tor.java:323)
+        at java.base/java.lang.VirtualThread.run(VirtualThread.java:456)
+00:09:57.700 ERROR [] rama.impl.agent-node - Error during agent node execution {:node create-analysts, :
+invoke-id #uuid "019ac3b7-d752-7cd7-bc99-48871efd7de6"}
+java.lang.ClassCastException: class com.rpl.agent.research.ResearchAgentModule$$Lambda/0x00000000944ee2d
+0 cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2 (com.rpl.agent.research.ResearchAgent
+Module$$Lambda/0x00000000944ee2d0 and com.rpl.agentorama.ops.RamaVoidFunction2 are in unnamed module of 
+loader 'app')
+        at com.rpl.agent_o_rama.impl.helpers$convert_void_jfn$fn__7582.invoke(helpers.clj:80)
+        at clojure.lang.AFn.applyToHelper(AFn.java:156)
+        at clojure.lang.AFn.applyTo(AFn.java:144)
+        at clojure.core$apply.invokeStatic(core.clj:669)
+        at clojure.core$apply.invoke(core.clj:662)
+        at com.rpl.agent_o_rama.impl.agent_node$node_event$fn__15819.invoke(agent_node.clj:797)
+        at clojure.lang.AFn.run(AFn.java:22)
+        at com.rpl.agentorama.impl.AgentNodeExecutorTaskGlobal.lambda$submitTask$0(AgentNodeExecutorTask
+Global.java:28)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:545)
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:328)
+        at java.base/java.util.concurrent.ThreadPerTaskExecutor$ThreadBoundFuture.run(ThreadPerTaskExecu
+tor.java:323)
+        at java.base/java.lang.VirtualThread.run(VirtualThread.java:456)
+00:09:58.361 ERROR [] rama.impl.agent-node - Error during agent node execution {:node create-analysts, :
+invoke-id #uuid "019ac3b7-d752-7cd7-bc99-48871efd7de6"}
+java.lang.ClassCastException: class com.rpl.agent.research.ResearchAgentModule$$Lambda/0x00000000944ee2d
+0 cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2 (com.rpl.agent.research.ResearchAgent
+Module$$Lambda/0x00000000944ee2d0 and com.rpl.agentorama.ops.RamaVoidFunction2 are in unnamed module of 
+loader 'app')
+        at com.rpl.agent_o_rama.impl.helpers$convert_void_jfn$fn__7582.invoke(helpers.clj:80)
+        at clojure.lang.AFn.applyToHelper(AFn.java:156)
+        at clojure.lang.AFn.applyTo(AFn.java:144)
+        at clojure.core$apply.invokeStatic(core.clj:669)
+        at clojure.core$apply.invoke(core.clj:662)
+        at com.rpl.agent_o_rama.impl.agent_node$node_event$fn__15819.invoke(agent_node.clj:797)
+        at clojure.lang.AFn.run(AFn.java:22)
+        at com.rpl.agentorama.impl.AgentNodeExecutorTaskGlobal.lambda$submitTask$0(AgentNodeExecutorTask
+Global.java:28)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:545)
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:328)
+        at java.base/java.util.concurrent.ThreadPerTaskExecutor$ThreadBoundFuture.run(ThreadPerTaskExecu
+tor.java:323)
+        at java.base/java.lang.VirtualThread.run(VirtualThread.java:456)
+00:11:04.855 ERROR [] rama.impl.agent-node - Error during agent node execution {:node create-analysts, :
+invoke-id #uuid "019ac3b8-e193-7e14-88ee-6a96ad25674a"}
+java.lang.ClassCastException: class com.rpl.agent.research.ResearchAgentModule$$Lambda/0x00000000944ee2d
+0 cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2 (com.rpl.agent.research.ResearchAgent
+Module$$Lambda/0x00000000944ee2d0 and com.rpl.agentorama.ops.RamaVoidFunction2 are in unnamed module of 
+loader 'app')
+        at com.rpl.agent_o_rama.impl.helpers$convert_void_jfn$fn__7582.invoke(helpers.clj:80)
+        at clojure.lang.AFn.applyToHelper(AFn.java:156)
+        at clojure.lang.AFn.applyTo(AFn.java:144)
+        at clojure.core$apply.invokeStatic(core.clj:669)
+        at clojure.core$apply.invoke(core.clj:662)
+        at com.rpl.agent_o_rama.impl.agent_node$node_event$fn__15819.invoke(agent_node.clj:797)
+        at clojure.lang.AFn.run(AFn.java:22)
+        at com.rpl.agentorama.impl.AgentNodeExecutorTaskGlobal.lambda$submitTask$0(AgentNodeExecutorTask
+Global.java:28)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executo
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:328)
+        at java.base/java.util.concurrent.ThreadPerTaskExecutor$ThreadBoundFutur
+tor.java:323)
+        at java.base/java.lang.VirtualThread.run(VirtualThread.java:456)
+00:11:05.368 ERROR [] rama.impl.agent-node - Error during agent node execution {
+invoke-id #uuid "019ac3b8-e193-7e14-88ee-6a96ad25674a"}
+java.lang.ClassCastException: class com.rpl.agent.research.ResearchAgentModule$$
+0 cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2 (com.rpl.agen
+Module$$Lambda/0x00000000944ee2d0 and com.rpl.agentorama.ops.RamaVoidFunction2 a
+loader 'app')
+        at com.rpl.agent_o_rama.impl.helpers$convert_void_jfn$fn__7582.invoke(he
+        at clojure.lang.AFn.applyToHelper(AFn.java:156)
+        at clojure.lang.AFn.applyTo(AFn.java:144)
+        at clojure.core$apply.invokeStatic(core.clj:669)
+        at clojure.core$apply.invoke(core.clj:662)
+        at com.rpl.agent_o_rama.impl.agent_node$node_event$fn__15819.invoke(agen
+        at clojure.lang.AFn.run(AFn.java:22)
+        at com.rpl.agentorama.impl.AgentNodeExecutorTaskGlobal.lambda$submitTask
+Global.java:28)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executo
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:328)
+        at java.base/java.util.concurrent.ThreadPerTaskExecutor$ThreadBoundFutur
+tor.java:323)
+        at java.base/java.lang.VirtualThread.run(VirtualThread.java:456)
+00:11:05.962 ERROR [] rama.impl.agent-node - Error during agent node execution {
+invoke-id #uuid "019ac3b8-e193-7e14-88ee-6a96ad25674a"}
+java.lang.ClassCastException: class com.rpl.agent.research.ResearchAgentModule$$
+0 cannot be cast to class com.rpl.agentorama.ops.RamaVoidFunction2 (com.rpl.agen
+Module$$Lambda/0x00000000944ee2d0 and com.rpl.agentorama.ops.RamaVoidFunction2 a
+loader 'app')
+        at com.rpl.agent_o_rama.impl.helpers$convert_void_jfn$fn__7582.invoke(he
+        at clojure.lang.AFn.applyToHelper(AFn.java:156)
+        at clojure.lang.AFn.applyTo(AFn.java:144)
+        at clojure.core$apply.invokeStatic(core.clj:669)
+        at clojure.core$apply.invoke(core.clj:662)
+        at com.rpl.agent_o_rama.impl.agent_node$node_event$fn__15819.invoke(agen
+        at clojure.lang.AFn.run(AFn.java:22)
+        at com.rpl.agentorama.impl.AgentNodeExecutorTaskGlobal.lambda$submitTask
+Global.java:28)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executo
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:328)
+        at java.base/java.util.concurrent.ThreadPerTaskExecutor$ThreadBoundFutur
+tor.java:323)
+        at java.base/java.lang.VirtualThread.run(VirtualThread.java:456)
+📦[kwalerie@femacs java]$ 
