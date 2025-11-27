@@ -1,0 +1,274 @@
+#+TITLE: Rama + Agent‑o‑Rama Demo Stack (supervisord edition)
+#+AUTHOR: Valerie
+#+DESCRIPTION: Minimal, supervisord-friendly setup for a single-node Rama dev cluster and Agent-o-Rama UI under Zo.
+
+* Overview
+This document captures a minimal, *supervisord-oriented* setup for:
+
+- A Rama single-node dev cluster:
+  - Zookeeper via =./rama devZookeeper=
+  - Conductor (=./rama conductor=, serves Cluster UI on 8888 by default)
+  - Rama Worker Supervisor (=./rama supervisor=)
+- Agent-o-Rama UI pointing at that Rama release.
+
+We assume:
+
+- Zo starts =supervisord= as PID 1 via =dumb-init=.
+- You control one or more “Services” via the Zo web UI; each Service becomes a =[program:x]= in =/etc/zo/supervisord-user.conf=.
+- Rama release is unpacked under =/home/workspace/rama=, Agent-o-Rama under =/home/workspace/agent-o-rama=.
+
+The key pattern: *one supervisord program per logical stack component*, each running a simple shell wrapper that:
+
+- starts any helper daemons in the background
+- then =exec=s the main process in the foreground (so supervisord can manage it)
+
+* Layout & prerequisites
+
+** Paths
+- Rama release root: =/home/workspace/rama=
+  - Script: =/home/workspace/rama/start-cluster.sh=
+  - Data dir (via =rama.yaml=): =/home/workspace/rama/local-rama-data=
+- Agent-o-Rama root: =/home/workspace/agent-o-rama=
+  - Script: =/home/workspace/agent-o-rama/start-agents.sh=
+
+** Runtime dependencies
+Install on the Zo container:
+
+- Java 21 runtime (OpenJDK or Temurin)
+- Python 3
+- =curl= for simple readiness checks (optional but handy)
+
+Example (Debian-ish):
+
+#+begin_src bash :tangle no
+apt-get update -y
+apt-get install -y openjdk-21-jre-headless python3 curl
+java -version
+#+end_src
+
+* Rama config (single node)
+
+Minimal =/home/workspace/rama/rama.yaml= for single-node dev:
+
+#+begin_src yaml :tangle no
+conductor.host: "127.0.0.1"
+conductor.port: 1973
+cluster.ui.port: 8888
+local.dir: "/home/workspace/rama/local-rama-data"
+zookeeper.servers:
+  - "127.0.0.1"
+zookeeper.port: 2000
+#+end_src
+
+This works for both Conductor and Supervisor; they share the same file.
+
+* Wrapper: Rama single-node cluster
+
+We use one supervisord program (one Zo Service) to run all three Rama daemons:
+
+- dev Zookeeper (background)
+- Rama Supervisor (background)
+- Conductor (foreground via =exec=)
+
+** =start-cluster.sh=
+
+Tangle to =/home/workspace/rama/start-cluster.sh= and =chmod +x= it.
+
+#+begin_src bash :tangle start-cluster.sh
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Always run from the Rama release directory (where ./rama and rama.yaml live)
+cd "$(dirname "$0")"
+
+echo "[rama-wrapper] starting Rama single-node cluster..."
+
+# 1) Dev Zookeeper (background) + quick sanity check
+./rama devZookeeper &
+ZK_PID=$!
+echo "[rama-wrapper] devZookeeper started with pid=$ZK_PID"
+sleep 1
+if ! kill -0 "$ZK_PID" 2>/dev/null; then
+  echo "[rama-wrapper] devZookeeper died immediately; aborting"
+  exit 1
+fi
+
+# 2) Rama Supervisor (background) + quick sanity check
+./rama supervisor &
+SUP_PID=$!
+echo "[rama-wrapper] supervisor started with pid=$SUP_PID"
+sleep 1
+if ! kill -0 "$SUP_PID" 2>/dev/null; then
+  echo "[rama-wrapper] supervisor died immediately; aborting"
+  exit 1
+fi
+
+# 3) Optional: log numSupervisors (best-effort only)
+if out=$(./rama numSupervisors 2>/dev/null | tr -d '\r'); then
+  case "$out" in
+    ''|*[!0-9]*) ;;
+    *)
+      echo "[rama-wrapper] numSupervisors currently reported: $out"
+      ;;
+  esac
+fi
+
+# 4) Conductor in foreground.
+#    We let supervisord handle signals for the whole process group
+#    via stopasgroup=true, killasgroup=true in the program config.
+echo "[rama-wrapper] starting conductor in foreground..."
+exec ./rama conductor
+#+end_src
+
+Notes:
+
+- =devZookeeper= and =supervisor= are backgrounded; on any obvious “crash on start” we abort so supervisord can log and retry.
+- =exec ./rama conductor= replaces the shell; from supervisord’s perspective, the “program” is just the Conductor.
+- When Zo/supervisord stops the program, with =stopasgroup=true= and =killasgroup=true= set, the whole process group (Conductor, ZK, Supervisor) gets TERM/KILL.
+
+* Wiring the Rama Service in supervisord
+
+You /do not/ edit =supervisord-user.conf= directly (Zo regenerates it). Instead, in the Zo web UI:
+
+1. Create or edit a Service (e.g. =rama-cluster-ui=).
+2. Set:
+   - Command: =./start-cluster.sh=
+   - Working directory: =/home/workspace/rama=
+3. Ensure supervisord options resemble:
+
+#+begin_src ini :tangle no
+[program:rama-cluster]
+command=./start-cluster.sh
+directory=/home/workspace/rama
+autostart=true
+autorestart=true
+startretries=20
+startsecs=5
+stdout_logfile=/dev/shm/rama-cluster.log
+stderr_logfile=/dev/shm/rama-cluster_err.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=4
+#+end_src
+
+With this:
+
+- =./start-cluster.sh= is run as the main process.
+- All three Rama daemons are in the same process group.
+- Stopping the Service sends TERM to the group; if they don’t exit in 4s, KILL is sent.
+
+* Agent-o-Rama wrapper
+
+Agent-o-Rama just needs a running Conductor/Supervisor combo and a pointer to the Rama release.
+
+We use a second supervisord program (second Zo Service) that:
+
+- waits for the Conductor to report “ready”
+- starts Agent-o-Rama in the foreground
+- lets supervisord manage restarts
+
+** =start-agents.sh=
+
+Tangle to =/home/workspace/agent-o-rama/start-agents.sh= and =chmod +x=.
+
+#+begin_src bash :tangle /home/workspace/agent-o-rama/start-agents.sh
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cd "$(dirname "$0")"
+
+PORT="${AOR_PORT:-1974}"
+RAMA_ROOT="${RAMA_ROOT:-/home/workspace/rama}"
+
+AOR_READY_TIMEOUT="${AOR_READY_TIMEOUT:-180}"   # seconds to wait for UI
+RECHECK="${RECHECK:-2}"                         # seconds between checks
+
+wait_conductor_ready() {
+  while true; do
+    if out="$("$RAMA_ROOT"/rama conductorReady 2>/dev/null)"; then
+      [ "$(printf '%s' "$out" | tr -d '\r')" = "true" ] && return 0
+    fi
+    sleep "$RECHECK"
+  done
+}
+
+echo "[aor-wrapper] waiting for Rama Conductor READY..."
+wait_conductor_ready
+echo "[aor-wrapper] Conductor is READY, starting Agent-o-Rama..."
+
+# In foreground: supervisord will log stdout/stderr and restart on failure
+exec ./aor --rama "$RAMA_ROOT" --port "$PORT"
+#+end_src
+
+* Wiring the Agent-o-Rama Service in supervisord
+
+Again via Zo’s Service UI, configure a second program, e.g. =agent-ui=:
+
+#+begin_src ini :tangle no
+[program:agent-ui]
+command=./start-agents.sh
+directory=/home/workspace/agent-o-rama
+autostart=true
+autorestart=true
+startretries=20
+startsecs=5
+stdout_logfile=/dev/shm/agent-ui.log
+stderr_logfile=/dev/shm/agent-ui_err.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=5
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=4
+#+end_src
+
+Agent-o-Rama will:
+
+- block until the cluster Conductor reports ready
+- then bind to =PORT= (default 1974)
+- exit if the Conductor disappears; supervisord autorestart logic decides what to do next
+
+* Monitoring & troubleshooting
+
+** Basic checks
+
+Inside the container:
+
+#+begin_src bash :tangle no
+# See Rama processes under the rama-cluster program
+ps -eo pid,ppid,cmd --forest | grep -E 'rama (devZookeeper|conductor|supervisor)' -n
+
+# Check supervisord-managed services
+supervisorctl -c /etc/zo/supervisord-user.conf status
+#+end_src
+
+** Logs
+
+- Rama cluster wrapper + Conductor/ZK/Supervisor stdout/stderr:
+  - =/dev/shm/rama-cluster.log=
+  - =/dev/shm/rama-cluster_err.log=
+- Agent-o-Rama:
+  - =/dev/shm/agent-ui.log=
+  - =/dev/shm/agent-ui_err.log=
+
+Tail them when debugging:
+
+#+begin_src bash :tangle no
+tail -n 100 /dev/shm/rama-cluster*.log 2>/dev/null
+tail -n 100 /dev/shm/agent-ui*.log 2>/dev/null
+#+end_src
+
+* Summary
+
+- *One* supervisord program (Zo Service) runs the Rama cluster via =start-cluster.sh=:
+  - ZK + Supervisor in background, Conductor foreground via =exec=.
+  - =stopasgroup=true=, =killasgroup=true= ensure all children are signalled on stop.
+- *One* supervisord program runs Agent-o-Rama via =start-agents.sh=:
+  - waits for Conductor to be ready, then =exec=’s =aor= in foreground.
+- supervisord handles:
+  - logging (stdout/stderr to files)
+  - autorestart on failure
+  - stop/kill of process groups on Service stop.

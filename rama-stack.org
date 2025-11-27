@@ -160,95 +160,47 @@ zookeeper.port: 2000
 * Script: start Rama cluster (UI on 8888)
 Tangles to =/root/rama/start-cluster.sh=.
 
-#+begin_src bash :tangle /root/rama/start-cluster.sh
+#+begin_src bash :tangle start-cluster.sh
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
 cd "$(dirname "$0")"
-umask 022
 
-LOCK="/tmp/rama-cluster.lock"
-exec 9>"$LOCK"
-flock -n 9 || { echo "Another rama cluster wrapper is running"; exit 1; }
+echo "[rama-wrapper] starting Rama single-node cluster..."
 
-LOG_DIR="/dev/shm/rama-cluster"
-mkdir -p "$LOG_DIR"
-
-RAMA_READY_TIMEOUT="${RAMA_READY_TIMEOUT:-300}"   # seconds for conductorReady
-RAMA_SUP_MIN="${RAMA_SUP_MIN:-1}"                 # supervisors required
-UI_WAIT_TIMEOUT="${UI_WAIT_TIMEOUT:-180}"         # seconds to wait for 8888
-
-# 1) Zookeeper
-./rama devZookeeper > "$LOG_DIR/zookeeper.log" 2>&1 &
+# 1) Dev Zookeeper (background) + quick sanity check
+./rama devZookeeper &
 ZK_PID=$!
-echo "devZookeeper pid=$ZK_PID"
+echo "[rama-wrapper] devZookeeper started with pid=$ZK_PID"
+sleep 1
+if ! kill -0 "$ZK_PID" 2>/dev/null; then
+  echo "[rama-wrapper] devZookeeper died immediately; aborting"
+  exit 1
+fi
 
-# 2) Conductor
-./rama conductor > "$LOG_DIR/conductor.log" 2>&1 &
-COND_PID=$!
-echo "conductor pid=$COND_PID"
-
-# 3) Wait for conductor READY via Rama CLI
-for i in $(seq 1 "$RAMA_READY_TIMEOUT"); do
-  if out=$(./rama conductorReady 2>/dev/null); then
-    if [ "$(printf '%s' "$out" | tr -d '\r')" = "true" ]; then
-      echo "Conductor READY after ${i}s"
-      break
-    fi
-  fi
-  echo "Waiting for Conductor READY... (${i}s)"
-  sleep 1
-done
-
-# 4) Supervisor
-./rama supervisor > "$LOG_DIR/supervisor.log" 2>&1 &
+# 2) Rama Supervisor (background) + quick sanity check
+./rama supervisor &
 SUP_PID=$!
-echo "supervisor pid=$SUP_PID"
+echo "[rama-wrapper] supervisor started with pid=$SUP_PID"
+sleep 1
+if ! kill -0 "$SUP_PID" 2>/dev/null; then
+  echo "[rama-wrapper] supervisor died immediately; aborting"
+  exit 1
+fi
 
-# 5) Verify at least one supervisor registered (best-effort)
-for i in $(seq 1 "$RAMA_READY_TIMEOUT"); do
-  if n=$(./rama numSupervisors 2>/dev/null | tr -d '\r'); then
-    case "$n" in
-      ''|*[!0-9]*) ;;
-      *)
-        if [ "$n" -ge "$RAMA_SUP_MIN" ]; then
-          echo "numSupervisors=$n"
-          break
-        fi
-        ;;
-    esac
-  fi
-  echo "Waiting for numSupervisors >= $RAMA_SUP_MIN... (${i}s)"
-  sleep 1
-done
+# 3) Optional: log numSupervisors (best-effort only)
+if out=$(./rama numSupervisors 2>/dev/null | tr -d '\r'); then
+  case "$out" in
+    ''|*[!0-9]*) ;;
+    *)
+      echo "[rama-wrapper] numSupervisors currently reported: $out"
+      ;;
+  esac
+fi
 
-# 6) Confirm UI port (best-effort)
-for i in $(seq 1 "$UI_WAIT_TIMEOUT"); do
-  if curl -fsS http://127.0.0.1:8888/ >/dev/null 2>&1; then
-    echo "Rama Cluster UI is responding on http://127.0.0.1:8888"
-    break
-  fi
-  echo "Waiting for Cluster UI HTTP... (${i}s)"
-  sleep 1
-done
-
-cleanup() {
-  echo "Shutting down rama cluster..."
-  # Prefer graceful cluster shutdown
-  timeout 15 ./rama shutdownCluster >> "$LOG_DIR/conductor.log" 2>&1 || true
-  # Fallback to killing child processes
-  kill $SUP_PID $COND_PID $ZK_PID 2>/dev/null || true
-  sleep 2
-  kill -9 $SUP_PID $COND_PID $ZK_PID 2>/dev/null || true
-  # Dump recent logs
-  echo "=== recent rama logs ==="
-  tail -n 100 "$LOG_DIR"/{zookeeper,conductor,supervisor}.log 2>/dev/null || true
-}
-trap cleanup SIGINT SIGTERM
-
-# Keep wrapper alive while children run
-wait -n $ZK_PID $COND_PID $SUP_PID || true
-exit 0
+# 4) Conductor in foreground
+echo "[rama-wrapper] starting conductor in foreground..."
+exec ./rama conductor
 #+end_src
 
 * Script: start Agent‑o‑Rama UI (on 1974)
