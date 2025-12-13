@@ -1,0 +1,286 @@
+#+title: Rama In Five Minutes
+
+* Rama in five minutes
+December 2, 2025 ~ Nathan Marz
+As an engineer, you want to ship product features. However, backend engineering gets bogged down by everything around those features: adding caches, wiring background workers, adding queues, handling migrations, and coordinating deploys. The actual business logic is usually a small part of the work.
+
+To make this concrete, imagine building a small todo app: users add todos, complete them, view their todo list, and see how many they’ve completed.
+
+This post shows how this is built in a traditional Postgres stack versus Rama. You’ll see how Rama eliminates all the infrastructure sprawl and glue code. If you’re using NoSQL databases or processing frameworks, you would incur the same costs as the Postgres version, just wearing different clothes.
+
+Building with a traditional Postgres stack
+You start with two tables and an index on user_id .
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+CREATE TABLE todos (
+  id SERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  text TEXT NOT NULL,
+  completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX ON todos(user_id);
+
+CREATE TABLE todo_stats (
+  user_id BIGINT PRIMARY KEY,
+  completed_count BIGINT NOT NULL,
+  total_count BIGINT NOT NULL
+);
+As traffic grows, reads become the bottleneck. To reduce load you add Memcached for the todo list and stats.
+
+As traffic increases further, writes become the bottleneck. The todo_stats writes don’t need to be synchronous, so you reduce load by moving those writes to a background worker fed by Kafka. The web server updates todos and appends to Kafka, and the worker reads from Kafka in batches to update todo_stats and Memcached efficiently.
+
+This system now has a web server, Postgres, Memcached, Kafka, and a worker:
+
+
+Each has its own scaling and deployment procedures, all for a tiny, medium-scale application. At high scale, a complete rearchitecture would be needed to make everything horizontally scalable, adding even more systems into the mix.
+
+Adding one small feature
+Now your product manager asks to enable todos to be reordered.
+
+A new column sort_key needs to be added to the todos table to create a fractional index, like so:
+
+1
+2
+ALTER TABLE todos
+  ADD COLUMN sort_key TEXT;
+This column must be backfilled. A simple approach is to assign evenly spaced keys from the todo ID:
+
+1
+2
+3
+UPDATE todos
+SET sort_key = to_char(id * 1000, 'FM999999999999')
+WHERE sort_key IS NULL;
+However, rewriting millions of rows in one transaction would create downtime, potentially hours. Instead, the logic has to be performed while the system is live, advancing through the table incrementally. This requires a custom background script.
+
+Once backfill completes, you can enforce the invariant and create the index:
+
+1
+2
+3
+4
+ALTER TABLE todos
+  ALTER COLUMN sort_key SET NOT NULL;
+
+CREATE INDEX CONCURRENTLY ON todos (user_id, sort_key);
+The rollout of the new feature must happen in this order:
+
+Add sort_key column to Postgres
+Update web server to initialize sort_key column for new todos but otherwise ignore that column
+Run backfill script
+Update Postgres schema to enforce the invariant on sort_key and create index
+Update web server with reordering feature added (including new query to sort todos by sort_key )
+This is all standard practice, but it’s significant engineering time spent coordinating schema changes, background jobs, and application code.
+
+How you build it with Rama
+Rama gives you a foundation that eliminates this glue code, infrastructure sprawl, and one-off scripts.
+
+In the Postgres-based stack, you can’t send every write through a queue because processing that queue is asynchronous. Some operations, like adding a todo, must be visible immediately on the next read, not some indeterminate time later. So some writes go directly to the database while others go through a queue. The result is a split system where some paths are synchronous and others are asynchronous.
+
+In Rama, every write goes through a queue called a “depot”. The key difference is that a depot append can support synchronous or asynchronous use cases. When appending you can choose to wait for only the log write to finish, or you can also wait for downstream processing to complete. This makes the depot-first model suitable for both interactive UI paths and background work, and this unified flow is the backbone of Rama’s architecture.
+
+Besides depots, a Rama application (called a “module”) also includes business logic (called “topologies”) and storage (called “PStates”). Rama applications follow this flow: events enter a depot, your logic processes them, and any number of PStates are updated.
+
+
+Every aspect of Rama is horizontally scalable. “PState” stands for “partitioned state” and is like a database, but much more flexible.
+
+Explaining Rama’s full API would take more space than this post allows, so we’ll instead explain the implementation in broad strokes. To dive deeper, check out this blog post series which contains line by line tutorials of applying Rama to a wide variety of use cases.
+
+Let’s start by building the “todos + completed_count” features, and the next section will add the ability to reorder lists. You can see the full code for this module here.
+
+Two helpers are needed for later definitions:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+public interface GetUserId extends RamaSerializable {
+  String getUserId();
+}
+
+public static class ExtractUserId implements RamaFunction1<GetUserId, String> {
+  public String invoke(GetUserId data) {
+    return data.getUserId();
+  }
+}
+One depot is needed:
+
+1
+setup.declareDepot("*todoDepot", Depot.hashBy(ExtractUserId.class));
+Next is a topology that will have the business logic:
+
+1
+StreamTopology s = topologies.stream("todos");
+This topology will have two PStates to store todo lists and completion stats:
+
+1
+2
+3
+4
+5
+6
+7
+8
+s.pstate("$$todos",
+         PState.mapSchema(
+           String.class,
+           PState.listSchema(
+             PState.fixedKeysSchema(
+               "todo", String.class,
+               "completedAt", Long.class))));
+s.pstate("$$completedStats", PState.mapSchema(String.class, Integer.class));
+As opposed to databases which have fixed data models, PStates are defined as any compound data structure.
+
+Next are the event types that will be appended to the depot:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+public static record NewTodo(String userId, String text) implements GetUserId {
+  public String getUserId() {
+    return userId;
+  }
+}
+
+public static record CompleteTodo(String userId, int index, long timeMillis) implements GetUserId {
+  public String getUserId() {
+    return userId;
+  }
+}
+Next is the business logic. Rama’s API is more expressive than a traditional database API, so the code below will look unfamiliar if you haven’t seen Rama before. You don’t need to follow every detail. What matters is the shape: events enter the depot, the topology handles them, and the PStates are updated. The details of the Path expressions are just how Rama describes data transformations, and the documentation walks through them step by step.
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+s.source("*todoDepot").out("*data")
+ .subSource("*data",
+   SubSource.create(NewTodo.class)
+            .each(NewTodo::userId, "*data").out("*userId")
+            .each(NewTodo::text, "*data").out("*text")
+            .localTransform("$$todos",
+                            Path.key("*userId")
+                                .nullToList()
+                                .afterElem()
+                                .transformed(Path.termVal(null))
+                                .key("todo")
+                                .termVal("*text")),
+   SubSource.create(CompleteTodo.class)
+            .each(CompleteTodo::userId, "*data").out("*userId")
+            .each(CompleteTodo::index, "*data").out("*index")
+            .each(CompleteTodo::timeMillis, "*data").out("*timeMillis")
+            .localTransform("$$todos",
+                            Path.must("*userId", "*index")
+                                .key("completedAt")
+                                .termVal("*timeMillis"))
+            .localTransform("$$completedStats",
+                            Path.key("*userId")
+                                .nullToVal(0)
+                                .term(Ops.INC)));
+This specifies handlers for events of type NewTodo and CompleteTodo . A NewTodo appends to the list of todos for the user. A CompleteTodo sets completedAt and increments the counter for the user in the $$completedStats PState.
+
+The web server does depot appends and PState queries using Rama’s client API, shown in a unit test for this module.
+
+That’s the entire backend, all specified in one 60 LOC Java class. It has great performance and scales horizontally. There are no separate caches or background workers. The backend architecture looks like this:
+
+
+This is ACID-compliant. Deploying, updating, and scaling this module are all one-line CLI commands. Rama replicates all state for fault-tolerance, and it has extensive monitoring of all aspects of module execution viewable through the Rama web UI.
+
+Adding list reordering to the Rama version
+Now let’s add the same “reorder todos” feature. The full code for this updated module is at this link. First, define a new event type for the reorder action:
+
+1
+2
+3
+4
+5
+public static record ReorderTodo(String userId, int fromIndex, int toIndex) implements GetUserId {
+  public String getUserId() {
+    return userId;
+  }
+}
+Then add an additional handler for this event:
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+SubSource.create(ReorderTodo.class)
+         .each(ReorderTodo::userId, "*data").out("*userId")
+         .each(ReorderTodo::fromIndex, "*data").out("*fromIndex")
+         .each(ReorderTodo::toIndex, "*data").out("*toIndex")
+         .localTransform("$$todos",
+                         Path.must("*userId")
+                             .filterSelected(Path.view(Ops.SIZE)
+                                                 .filterGreaterThan("*toIndex"))
+                             .index("*fromIndex")
+                             .termVal("*toIndex"))
+That’s the entire implementation. There’s no new column, no migration, no backfill script, no index to build, and no multi-step deploy sequence. You simply extend the module definition and update the module with a one-line CLI command.
+
+The Postgres version needed the sort_key column because the todo list was not being stored as an actual list, but simulated as a list in a SQL table. In Rama, the todo list is stored directly as a list inside a PState, so reordering is just modifying the list in place. Rama enabling you to store your domain model directly in PStates avoids a ton of complexity you usually have when using databases with fixed data models, and this is just a small example of that. For the same reason, you never need anything like an ORM when using Rama.
+
+If you do need to change your PState schema, Rama has great support for that. Most migrations, including ones needing backfill, can be performed instantly even if the PState has terabytes of data.
+
+Conclusion
+The gap between the traditional approach and Rama only grows with more features or higher scale. As an application grows, traditional stacks accumulate operational work: schema changes, backfills, and deploy choreography. Adding databases or other infrastructure is common. The complexity of both development and operations keeps multiplying.
+
+Rama avoids that complexity and sprawl entirely. Rama applications require little code because they’re almost all business logic, and deployment and scaling are built-in. The same codebase will carry you all the way to large scale, so there’s no hidden rewrite waiting for you when usage grows.
+
+Most importantly, Rama is general purpose. For an example of this, we re-implemented the entirety of Mastodon to be Twitter-scale in only 10k lines of code. The project implements an extremely diverse feature set: timelines, social graph, search, recommendations, trends, scheduled posts, and much more.
+
+Rama also gives you huge flexibility from depots capturing every change. You can replay them later to build new derived views, and you gain a complete audit log for debugging if something goes wrong.
+
+The more your product grows, the more time and money Rama saves. It keeps the backend focused on business logic rather than the scaffolding around it.
